@@ -1,0 +1,4227 @@
+---
+title: "721 BRFSS 2022"
+author: "Ilmul Jahan Tani"
+date: "`r Sys.Date()`"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(haven)
+library(dplyr)
+library(car)
+library(janitor)
+library(ggplot2)
+library(gtsummary)
+library(labelled)
+library(flextable)
+library(lme4)
+library(lmerTest)
+library(survey)
+library(flextable)
+```
+
+
+```{r}
+dat12 <- read_xpt("C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\LLCP2012.XPT") %>% 
+  janitor::clean_names()
+```
+
+```{r}
+names(dat12)
+```
+
+```{r}
+dat12a <- dat12 %>% 
+          dplyr::select(state, intvid, seqno, imonth, iday, iyear, dispcode, psu, ststr, llcpwt, geostr, wt2, strwt, sex, age, racegr2, marital, educa, employ, genhlth, addepev2, exerany2, cvdcrhd4, hlthpln1)
+
+names(dat12a)
+```
+
+```{r}
+summary(dat12a)
+```
+
+#interview final result (needs recoding?)
+```{r}
+class(dat12a$dispcode)
+table(dat12a$dispcode, useNA = "always") #1100:completed, 1200: partial
+summary(dat12a$dispcode)
+```
+
+#selecting only the completed interviews
+```{r}
+dat12b <- dat12a %>% 
+  filter(dispcode==1100 & iyear==2012)
+```
+
+#state (remove some states??)
+```{r}
+class(dat12b$state)
+table(dat12b$state)
+```
+
+#intvid
+```{r}
+class(dat12b$intvid)
+dat12b$intvid <- as.numeric(dat12b$intvid, na.rm=T)
+table(dat12b$intvid, useNA = "always")
+summary(dat12b$intvid)
+#61502 NAs
+```
+
+#seqno
+```{r}
+class(dat12b$seqno)
+table(dat12b$seqno, useNA = "always")
+summary(dat12b$seqno)
+#no missing
+```
+
+#interview day
+```{r}
+class(dat12b$iday)
+dat12b$iday <- as.numeric(dat12b$iday)
+table(dat12b$iday, useNA = "always")
+summary(dat12b$iday)
+#no missing
+```
+
+#interview month
+```{r}
+class(dat12b$imonth)
+dat12b$imonth <- as.numeric(dat12b$imonth)
+table(dat12b$imonth, useNA = "always")
+summary(dat12b$imonth)
+#no missing
+```
+
+#interview year
+```{r}
+class(dat12b$iyear)
+dat12b$iyear <- as.numeric(dat12b$iyear)
+table(dat12b$iyear, useNA = "always")
+summary(dat12b$iyear)
+```
+
+#sex
+```{r}
+class(dat12b$sex)
+table(dat12b$sex, useNA = "always") 
+summary(dat12b$sex)
+#no missing
+```
+
+#age
+```{r}
+class(dat12b$age)
+table(dat12b$age, useNA = "always") 
+summary(dat12b$age)
+#no missing
+```
+
+#race
+```{r}
+class(dat12b$racegr2)
+table(dat12b$racegr2, useNA = "always") 
+summary(dat12b$racegr2)
+#88 missing
+```
+
+#marital status (needs recoding)
+```{r}
+class(dat12b$marital)
+table(dat12b$marital, useNA = "always") 
+summary(dat12b$marital)
+
+#missing
+```
+
+#education level (needs recoding)
+```{r}
+class(dat12b$educa)
+table(dat12b$educa, useNA = "always") 
+summary(dat12b$educa)
+```
+
+#employment (needs recoding)
+```{r}
+class(dat12b$employ)
+table(dat12b$employ, useNA = "always") 
+summary(dat12b$employ)
+```
+
+#General health (needs recoding)
+```{r}
+class(dat12b$genhlth)
+table(dat12b$genhlth, useNA = "always") 
+summary(dat12b$genhlth)
+
+#missing
+```
+
+#Have depression (needs recoding)
+```{r}
+class(dat12b$addepev2)
+table(dat12b$addepev2, useNA = "always") 
+summary(dat12b$addepev2)
+
+#missing
+```
+
+#Exercise
+```{r}
+class(dat12b$exerany2)
+table(dat12b$exerany2, useNA = "always") 
+summary(dat12b$exerany2)
+
+#missing
+```
+
+#CHD
+```{r}
+class(dat12b$cvdcrhd4)
+table(dat12b$cvdcrhd4, useNA = "always") 
+summary(dat12b$cvdcrhd4)
+
+#missing
+```
+
+
+#health coverage
+```{r}
+class(dat12b$hlthpln1)
+table(dat12b$hlthpln1, useNA = "always") 
+summary(dat12b$hlthpln1)
+
+#missing
+```
+
+#Recoding variables#
+
+```{r}
+#sex
+dat12b$sex <- as.factor(dat12b$sex)
+
+table(dat12b$sex, useNA = "always")
+
+dat12b$sex1 <- car::Recode(dat12b$sex, recodes = "1='Male'; 2='Female'; else=NA",
+                      levels = c('Male', 'Female'), as.factor=T)
+
+table(dat12b$sex1, useNA = "always")
+
+```
+
+#recoding 7 and 9 to NA of AGE 
+```{r}
+table(dat12b$age, useNA = "always")
+
+dat12b$age1 <- ifelse(dat12b$age == 7 | dat12b$age == 9, NA, dat12b$age)
+
+table(dat12b$age1, useNA = "always")
+```
+
+#centering age
+```{r}
+dat12b$ageC <- dat12b$age1 - 18
+
+summary(dat12b$ageC)
+table(dat12b$ageC, useNA = "always")
+```
+
+#Categorizing AGE
+```{r}
+dat12b$age2 <- as.factor(dat12b$age1)
+
+table(dat12b$age2, useNA = "always")
+
+dat12b$ageF <- recode(dat12b$age2,
+  "18:24='18-24'; 25:34='25-34'; 35:44='35-44'; 45:54='45-54'; 55:64='55-64' ; 65:99='65+'; else=NA")
+
+table(dat12b$ageF, useNA = "always")
+```
+
+
+```{r}
+#race
+dat12b$racegr2 <- as.factor(dat12b$racegr2)
+
+table(dat12b$racegr2, useNA = "always")
+
+dat12b$race1 <- car::Recode(dat12b$racegr2, recodes = "1='Non-Hispanic White'; 2='Non-Hispanic Black'; 3='Non-Hispanic Other race'; 4='Non-Hispanic Multiracial'; 5='Hispanic'; else=NA",
+                      levels = c('Non-Hispanic White', 'Non-Hispanic Black', 'Non-Hispanic Other race', 'Non-Hispanic Multiracial', 'Hispanic'), as.factor=T)
+
+table(dat12b$race1, useNA = "always")
+```
+
+
+```{r}
+#marital status
+dat12b$marital <- as.factor(dat12b$marital)
+
+table(dat12b$marital, useNA = "always")
+
+dat12b$marital1 <- car::Recode(dat12b$marital, recodes = "1='Married'; 2='Divorced'; 3='Widowed'; 4='Separated'; 5='Never married'; 6='A member of an unmarried couple'; else=NA",
+                      levels = c('Married', 'Divorced', 'Widowed', 'Separated', 'Never married', 'A member of an unmarried couple'), as.factor=T)
+
+table(dat12b$marital1, useNA = "always")
+```
+
+```{r}
+#education
+dat12b$educa <- as.factor(dat12b$educa)
+
+table(dat12b$educa, useNA = "always")
+
+# dat12b$educa1 <- car::Recode(dat12b$educa, recodes = "1='Never attended'; 2='Elementary'; 3='Some high school'; 4='High school gaduate'; 5='Some college or technical school'; 6='College graduate'; else=NA",
+#                       levels = c('Never attended', 'Elementary', 'Some high school', 'High school gaduate', 'Some college or technical school', 'College graduate'), as.factor=T)
+                       
+dat12b$educa1 <- car::Recode(dat12b$educa, recodes = "1:2='Less than high school'; 3:4='High school'; 5='Some college'; 6='College graduate'; else=NA", 
+                             levels = c('Less than high school', 'High school', 'Some college', 'College graduate'), as.factor=T)
+
+table(dat12b$educa1, useNA = "always")
+```
+
+```{r}
+#employment
+dat12b$employ1 <- as.factor(dat12b$employ)
+
+table(dat12b$employ, useNA = "always")
+
+dat12b$employ1 <- car::Recode(dat12b$employ, recodes = "1='Employed for wages'; 2='Self-employed'; 3='Out of work for more than 1 year'; 4='Out of work for less that 1 year'; 5='Homemaker'; 6='Student'; 7='Retired'; 8='Unable to work'; else=NA",
+                      levels = c('Employed for wages', 'Self-employed', 'Out of work for more than 1 year', 'Out of work for less that 1 year', 'Homemaker', 'Student', 'Retired', 'Unable to work'), as.factor=T)
+
+table(dat12b$employ1, useNA = "always")
+```
+
+```{r}
+#general health
+# dat12b$genhlth1 <- as.factor(dat12b$genhlth)
+# 
+# table(dat12b$genhlth, useNA = "always")
+# 
+# dat12b$genhlth1 <- Recode(dat12b$genhlth, recodes = "1='Excellent'; 2='Very good'; 3='Good'; 4='Fair'; 5='Poor'; else=NA",
+#                       levels = c('Excellent', 'Very good', 'Good', 'Fair', 'Poor'), as.factor=T)
+# 
+# table(dat12b$genhlth1, useNA = "always")
+```
+
+```{r}
+# #general health
+dat12b$genhlth <- as.factor(dat12b$genhlth)
+
+table(dat12b$genhlth, useNA = "always")
+
+# dat12b <- mutate(dat12b, genhlth1 = ifelse(genhlth %in% c(1, 2), "Excellent",
+#                                      ifelse(genhlth %in% c(3, 4, 5), "Poor", NA)))
+#
+dat12b$genhlth1 <- car::Recode(dat12b$genhlth, recodes = "1:2='Excellent/Very good'; 3:5='Good/Fair/Poor'; else=NA", as.factor=T)
+
+table(dat12b$genhlth1, useNA = "always")
+```
+
+```{r}
+dat12b$genhlth2 <- car::Recode(dat12b$genhlth1, recodes="'Excellent/Very good'=0; 'Good/Fair/Poor'=1")
+ 
+table(dat12b$genhlth2, useNA = "always")
+```
+
+
+```{r}
+#having depression 
+dat12b$addepev2a <- as.factor(dat12b$addepev2)
+
+table(dat12b$addepev2, useNA = "always")
+
+dat12b$depr1 <- car::Recode(dat12b$addepev2, recodes = "1='Yes'; 2='No'; else=NA",
+                      levels = c('Yes', 'No'), as.factor=T)
+
+table(dat12b$depr1, useNA = "always")
+```
+
+
+```{r}
+#having depression 
+
+table(dat12b$addepev2, useNA = "always")
+
+dat12b$depr1 <- car::Recode(dat12b$addepev2, recodes = "1='Yes'; 2='No'; else=NA",
+                      levels = c('Yes', 'No'), as.factor=T)
+
+table(dat12b$depr1, useNA = "always")
+```
+
+```{r}
+#exercise 
+dat12b$exerany2 <- as.factor(dat12b$exerany2)
+
+table(dat12b$exerany2, useNA = "always")
+
+dat12b$exer1 <- car::Recode(dat12b$exerany2, recodes = "1='Yes'; 2='No'; else=NA",
+                      levels = c('Yes', 'No'), as.factor=T)
+
+table(dat12b$exer1, useNA = "always")
+```
+
+
+```{r}
+#CVD 
+dat12b$cvdcrhd4 <- as.factor(dat12b$cvdcrhd4)
+
+table(dat12b$cvdcrhd4, useNA = "always")
+
+dat12b$cvd1 <- car::Recode(dat12b$cvdcrhd4, recodes = "1='Yes'; 2='No'; else=NA",
+                      levels = c('Yes', 'No'), as.factor=T)
+
+table(dat12b$cvd1, useNA = "always")
+```
+
+
+```{r}
+#health care access 
+dat12b$hlthpln1 <- as.factor(dat12b$hlthpln1)
+
+table(dat12b$hlthpln1, useNA = "always")
+
+dat12b$hlthcov1 <- car::Recode(dat12b$hlthpln1, recodes = "1='Yes'; 2='No'; else=NA",
+                      levels = c('Yes', 'No'), as.factor=T)
+
+table(dat12b$hlthcov1, useNA = "always")
+```
+
+
+#creating a dataframe with only complete cases
+#selecting variables for the final dataframe
+```{r}
+dat12c <- dat12b %>% 
+  dplyr::select(intvid, seqno, iday, imonth, iyear, dispcode, psu, llcpwt, ststr, geostr, wt2, strwt, state, sex1, age1, ageC, ageF, race1,  marital1, educa1, employ1, genhlth1, genhlth2, depr1, exer1, cvd1, hlthcov1)%>%   
+  filter(complete.cases(.))
+```
+
+
+#Calculating workload
+```{r}
+library(dplyr)
+
+# Assuming dat12c is your original data frame
+workload <- dat12c %>% 
+   group_by(intvid) %>% 
+   summarise(workload = n())
+
+
+
+# Merge the summarization result back to the original data frame
+dat12c <- left_join(dat12c, workload, by = "intvid")
+
+# Print the resulting data frame
+print(dat12c)
+```
+
+#Creating categories of workload from low to high using k-means (WILL USE THIS)
+```{r}
+#k-Means Clustering:
+# Advantage: Groups data based on similarity in value, which can reveal natural groupings or patterns in the data that aren't based on percentiles. It's a form of unsupervised classification.
+# Use Case: Effective when there are natural clusters in the data, and you want the categories to reflect these distinct groupings.
+
+set.seed(123) # for reproducibility
+clusters <- kmeans(dat12c$workload, centers = 4)
+dat12c$wkl <- as.factor(clusters$cluster)
+
+table(dat12c$wkl)
+
+dat12c$wkl <- factor(dat12c$wkl, levels = c(1, 4, 2, 3), labels = c("Low", "Medium", "High", "Very high"))
+
+table(dat12c$wkl)
+```
+
+
+```{r}
+save(dat12c, file = "C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\dat12c.RData")
+```
+
+```{r}
+load("C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\dat12c.RData")
+
+names(dat12c)
+```
+
+#selecting sample of 30%
+```{r}
+set.seed(1220)
+dat12c_hd <- dat12c %>%
+                sample_frac(0.50, replace = FALSE)
+```
+
+```{r}
+options(survey.adjust.domain.lonely=TRUE)
+options(survey.lonely.psu="adjust")
+
+#des <- svydesign(ids=~psu, strata = ~ststr, weights = ~wt2, data=dat12c_hd, nest = T)
+```
+
+```{r}
+#Standardizing the cohesion score
+dat12c_hd$wt3 <- scale(dat12c_hd$wt2, center = T, scale = T)
+
+dat12c_hd$wt4 <- ifelse(dat12c_hd$wt3>0, dat12c_hd$wt3,0)
+```
+
+
+# Calculating the average number of interviewers per workload category
+```{r}
+avg <- dat12c_hd %>% 
+   group_by(wkl) %>% 
+   summarise(avg_interviews = mean(intvid), group = n())%>%
+  mutate(percentage = (group / sum(group)) * 100)
+avg
+```
+
+Average number of interviews conducted by Low (5,330) workload interviewers is 131.
+Average number of interviews conducted by Medium (20,491) workload interviewers is 458.
+Average number of interviews conducted by High (52,367) workload interviewers is 1,473.
+Average number of interviews conducted by Very high (102,386) workload interviewers is 15,613.
+
+```{r}
+names(dat12c_hd)
+table(dat12c_hd$wkl)
+```
+
+```{r}
+# Group the data by the workload group (wkl) and calculate workload statistics
+workload_stats <- dat12c_hd %>%
+  group_by(wkl) %>%
+  summarise(
+    min_workload = min(intvid),  # Minimum number of interviews within the workload group
+    max_workload = max(intvid),  # Maximum number of interviews within the workload group
+    mean_workload = mean(intvid),  # Mean number of interviews within the workload group
+    median_workload = median(intvid)  # Median number of interviews within the workload group
+  )
+workload_stats
+```
+
+
+```{r}
+# Assuming your data is stored in a data.frame named 'data'
+
+# Count the number of unique interviewer IDs
+# length(unique(dat12c_lowWL$intvid))
+# length(unique(dat12c_MedWL$intvid))
+# length(unique(dat12c_HWL$intvid))
+# length(unique(dat12c_VHWL$intvid))
+# length(unique(dat12c_hd$intvid))
+# length(unique(dat12c$intvid))
+# 
+# # Assuming your data is stored in a data.frame named 'data'
+# 
+# # Filter data for interviewer ID 123
+# filtered_data <- dat12c_lowWL[dat12c_lowWL$intvid == 123, ]
+# 
+# # Sum the number of interviews
+# total_interviews <- nrow(filtered_data)
+# 
+# # Print the result
+# cat("Total interviews conducted by interviewer ID 123:", total_interviews)
+
+```
+
+
+```{r}
+# workload_by_interviewer <- dat12c_hd %>% 
+#    group_by(intvid, wkl) %>% 
+#    summarise(total_interviews = sum(intvid))
+# 
+# # View the resulting dataframe
+# workload_by_interviewer
+```
+
+```{r}
+# Group by interviewer and workload level, then summarize the range of interviews
+# workload_range_by_interviewer <- dat12c_hd %>% 
+#    group_by(intvid, wkl) %>% 
+#    summarise(min_interviews = min(intvid),
+#              max_interviews = max(intvid))
+# 
+# # View the resulting dataframe
+# workload_range_by_interviewer
+
+```
+
+
+```{r}
+# noint1 <-  dat12c_hd %>% 
+#    group_by(wkl) %>% 
+#    summarise(group = n())%>%
+#   mutate(percentage = (group / sum(intvid)) * 100)
+#    
+# noint1
+```
+
+
+```{r}
+# noint1 <- dat12c_hd %>% 
+#    group_by(wkl, intvid) %>% 
+#    summarise(num_interviews = n()) %>%
+#    group_by(wkl) %>%
+#    summarise(min_interviews = min(num_interviews),
+#              max_interviews = max(num_interviews))
+# 
+# noint1
+```
+
+```{r}
+# length(unique(dat12$intvid))
+# dat12$r <- unique(dat12$intvid)
+# r
+```
+
+
+```{r}
+# r <- tbl_cross(dat12, row = intvid, col = state)
+# r
+```
+
+#finding number of interviewers in the full data
+```{r}
+# Assuming your data frame is called 'your_data', you can count unique combinations of INTVID and _state variables like this:
+unique_counts <- dat12 %>% 
+  group_by(intvid, state) %>% 
+  summarise(count = n())
+
+# Count the number of unique interviewers
+num_unique_interviewers <- nrow(unique_counts)
+num_unique_interviewers
+```
+16,968
+
+
+
+```{r}
+unique_counts1 <- dat12c %>% 
+  group_by(intvid, state) %>% 
+  summarise(count = n())
+
+# Count the number of unique interviewers
+num_unique_interviewers <- nrow(unique_counts)
+num_unique_interviewers
+
+
+# Merge the summarization result back to the original data frame
+dat12c <- left_join(dat12c, unique_counts1, by = "intvid")
+
+# Print the resulting data frame
+print(dat12c)
+```
+
+#Creating categories of workload from low to high using k-means (WILL USE THIS)
+```{r}
+#k-Means Clustering:
+# Advantage: Groups data based on similarity in value, which can reveal natural groupings or patterns in the data that aren't based on percentiles. It's a form of unsupervised classification.
+# Use Case: Effective when there are natural clusters in the data, and you want the categories to reflect these distinct groupings.
+
+set.seed(123) # for reproducibility
+clusters <- kmeans(dat12c$workload, centers = 4)
+dat12c$wkl <- as.factor(clusters$cluster)
+
+table(dat12c$wkl)
+
+dat12c$wkl <- factor(dat12c$wkl, levels = c(1, 4, 2, 3), labels = c("Low", "Medium", "High", "Very high"))
+
+table(dat12c$wkl)
+```
+
+#number of interviewers in 50% data
+```{r}
+unique_counts50 <- dat12c_hd %>% 
+  group_by(intvid, state) %>% 
+  summarise(count = n())
+
+# Count the number of unique interviewers
+num_unique_interviewer50 <- nrow(unique_counts50)
+num_unique_interviewer50
+```
+10124
+
+#number of interviewers for low workload
+```{r}
+unique_countsL <- dat12c_lowWL %>% 
+  group_by(intvid, state) %>% 
+  summarise(count = n())
+
+# Count the number of unique interviewers
+num_unique_interviewersL <- nrow(unique_countsL)
+num_unique_interviewersL
+```
+99
+
+#number of interviewers for Medium workload
+```{r}
+unique_countsM <- dat12c_MedWL %>% 
+  group_by(intvid, state) %>% 
+  summarise(count = n())
+
+# Count the number of unique interviewers
+num_unique_interviewersM <- nrow(unique_countsM)
+num_unique_interviewersM
+```
+434
+
+#number of interviewers for High workload
+```{r}
+unique_countsH <- dat12c_HWL %>% 
+  group_by(intvid, state) %>% 
+  summarise(count = n())
+
+# Count the number of unique interviewers
+num_unique_interviewersH <- nrow(unique_countsH)
+num_unique_interviewersH
+```
+1438
+
+#number of interviewers for VH workload
+```{r}
+unique_countsVH <- dat12c_VHWL %>% 
+  group_by(intvid, state) %>% 
+  summarise(count = n())
+
+# Count the number of unique interviewers
+num_unique_interviewersVH <- nrow(unique_countsVH)
+num_unique_interviewersVH
+```
+8153
+
+
+```{r}
+# Group the data by INTVID and count the number of interviews for each interviewer
+workload <- your_data %>%
+  group_by(INTVID) %>%
+  summarise(num_interviews = n())
+
+# Summary statistics of workload
+summary_stats <- summary(workload$num_interviews)
+
+# Show summary statistics
+print(summary_stats)
+
+# You can also find the range of interviews
+range_workload <- range(workload$num_interviews)
+
+# Show the range of interviews
+print(range_workload)
+
+```
+
+
+#Descriptives table
+```{r}
+var_label(dat12c_hd) <- list(
+                      sex1 = "Sex of Respondent",
+                      ageF = "Age",
+                      race1 = "Race and Ethnicity",
+                      marital1 = "Marital Status",
+                      educa1 = "Educational Attainment",
+                      employ1 = "Employment Status",
+                      genhlth2 = "Self-rated General Health",
+                      depnew1 = "Having any Depression",
+                      exernew = "Any Exercise",
+                      hcovnew = "Any Health Coverage")
+```
+
+
+**Descriptives table**
+```{r Sample characteristics, warning=FALSE, message=FALSE}
+set_gtsummary_theme(theme_gtsummary_compact(set_theme = TRUE))
+
+#To get the descriptives
+des1 <- 
+  survey::svydesign(ids=~psu, strata = ~ststr, weights = ~llcpwt, data=dat12c_hd, nest = T) %>%
+      tbl_svysummary(
+              include = c(sex1, ageF, race1, marital1, educa1, employ1, genhlth2, depnew1, exernew, hcovnew),
+              type = list(all_dichotomous() ~ "categorical",
+                          all_continuous() ~ "continuous"),
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                          all_categorical() ~ "{p}"),
+              percent = "column",
+              digits = all_continuous() ~ 1) %>%
+  bold_labels() %>%
+  italicize_levels() %>% 
+  as_flex_table()
+
+des1
+```
+
+```{r}
+save_as_docx(des1, path = "C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\Des table 1.docx")
+```
+
+
+############################## Modeling Approach ##########################################
+
+```{r}
+#dat12c_hd$wt2a <- scale(dat12c_hd$wt2, center = T, scale = T)
+```
+
+
+#LRT function
+```{r, echo=TRUE}
+# Function to calculate LRT p-values for variances of random effects
+lrt.pvalue <- function(fit1, fit2) {
+  lrtstat <-
+    (-2 * as.numeric(logLik(fit2))) - (-2*as.numeric(summary(fit1)$logLik))
+  pvalue = 0.5 * (1 - pchisq(lrtstat, 2)) + 0.5 * (1 - pchisq(lrtstat, 1))
+  return(pvalue)
+}
+```
+
+
+#with general health
+
+#FOR LOW WORKLOAD
+```{r}
+dat12c_lowWL <- dat12c_hd %>%
+            filter(wkl=="Low")
+
+```
+
+```{r}
+modgen1Low <- glmer(genhlth2 ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_lowWL)
+
+summary(modgen1Low)
+#intercept not sig
+```
+
+#icc for Low
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance1 <- VarCorr(modgen1Low)$intvid[1]
+
+# Calculate ICC
+icc1 <- random_intercept_variance1 / (random_intercept_variance1 + pi^2 / 3)
+icc1
+#0.03
+```
+
+
+#FOR MEDIUM WORKLOAD
+```{r}
+dat12c_MedWL <- dat12c_hd %>%
+            filter(wkl=="Medium")
+
+```
+
+```{r}
+modgen1Med <- glmer(genhlth2 ~ 1 + (1 | intvid),
+                    weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_MedWL)
+
+summary(modgen1Med)
+#intercept sig
+```
+
+#icc for MEDIUM
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance2 <- VarCorr(modgen1Med)$intvid[1]
+
+# Calculate ICC
+icc2 <- random_intercept_variance2 / (random_intercept_variance2 + pi^2 / 3)
+icc2
+#0.05
+```
+
+#FOR HIGH WORKLOAD
+```{r}
+dat12c_HWL <- dat12c_hd %>%
+            filter(wkl=="High")
+
+```
+
+```{r}
+modgen1H <- glmer(genhlth2 ~ 1 + (1 | intvid),
+                  weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_HWL)
+
+summary(modgen1H)
+#intercept sig
+```
+
+#icc for HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance3 <- VarCorr(modgen1H)$intvid[1]
+
+# Calculate ICC
+icc3 <- random_intercept_variance3 / (random_intercept_variance3 + pi^2 / 3)
+icc3
+#0.04
+```
+
+
+#FOR VERY HIGH WORKLOAD
+```{r}
+dat12c_VHWL <- dat12c_hd %>%
+            filter(wkl=="Very high")
+
+```
+
+```{r}
+modgen1VH <- glmer(genhlth2 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_VHWL)
+
+summary(modgen1VH)
+#intercept sig
+```
+
+#icc for VERY HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance4 <- VarCorr(modgen1VH)$intvid[1]
+
+# Calculate ICC
+icc4 <- random_intercept_variance4 / (random_intercept_variance4 + pi^2 / 3)
+icc4
+#0.01
+```
+
+*ICC decreases
+
+#fitting a model with random intercept only
+```{r}
+modgen1 <- glmer(genhlth2 ~ sex1 + ageF + race1 + (1 | intvid),
+                 weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(modgen1)
+#int var 0.3559
+
+```
+
+```{r}
+modgen1a <- glm(genhlth2 ~ sex1 + ageF + race1,
+                  weights = wt4,
+                  family = binomial(link = "logit"),
+                data = dat12c_hd)
+
+summary(modgen1a)
+```
+
+
+#Test the null hypothesis that the variance of the random intercepts is equal to zero
+
+#LRT test for Random intercept
+```{r}
+lrt.pvalue(modgen1, modgen1a)
+
+#0: P<0.05
+#We would reject the null hypothesis given the very small p-value, and conclude that the variance of the random intercepts is definitely greater than zero.
+```
+
+
+#fitting a model adding workload as a predictor
+```{r}
+modgen2 <- glmer(genhlth2 ~ wkl + (1 | intvid),
+                 weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(modgen2)
+#Workload not significant
+#correlation high
+#RI=0.3875
+```
+
+```{r}
+genred <- tbl_regression(modgen2, exp = T) %>% 
+  bold_p()
+
+genred
+```
+
+```{r}
+# save_as_docx(genred, path = "C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\genred.docx")
+```
+
+#percentage of the variance in the random intercepts is explained by workload
+```{r}
+#Extracting variance from random intercepts
+var1 <- VarCorr(modgen1)$intvid[1,1]  
+var1
+
+var2 <- VarCorr(modgen2)$intvid[1,1]  
+var2
+
+#Compute the reduction in variance:
+reduction_in_variance <- (var2 - var1) / var1
+reduction_in_variance*100
+
+#8.87% variance due to the intercept
+```
+
+#adding predictors to explain variance in intercept
+```{r}
+modgen3 <- glmer(genhlth2 ~ sex1 + ageF + race1 + marital1 + educa1 + employ1 + wkl + (1 | intvid),
+                 weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(modgen3)
+#workload not significant
+#RI variance=0.3954
+```
+
+```{r}
+genfull <- tbl_regression(modgen3, exp = T) %>% 
+  bold_p()
+
+genfull
+```
+
+```{r}
+save_as_docx(genfull, path = "C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\Gentable.docx")
+```
+
+```{r}
+library(lmtest)
+lrtest(modgen3, modgen2)
+anova(modgen3, modgen2)
+#significant
+```
+
+```{r}
+tbl_merge_ex3 <-
+  tbl_merge( #Table merge function
+    tbls = list(genred, genfull), # Selecting the tables to be included in the combined table output 
+    # More objects can be added here
+    tab_spanner = c("**Reduced model**", "**Full model**") # Naming the models
+  ) %>% 
+  bold_labels()%>% 
+  italicize_levels()%>% 
+  as_flex_table() #gtsummary packages can crete objects as gt, flextable or huxtable, and many more. These are useful pacakges to further formatting tables according to presentation and publication needs.
+tbl_merge_ex3
+```
+
+```{r}
+save_as_docx(tbl_merge_ex3, path = "C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\gentable.docx")
+```
+
+
+```{r}
+AIC(modgen2, modgen3) #modgen3 has the lowest AIC
+BIC(modgen2, modgen3) #modgen3 has the lowest AIC
+```
+
+#Model diagnostic
+
+#modgen3
+```{r}
+# compute predicted probability
+dat12c_hd$predicted_prob <- predict(modgen3, newdata = dat12c_hd, type = "response")
+
+# Combine predicted probabilities with the original dataset
+result <- data.frame(dat12c_hd$genhlth2, Predicted_Prob = dat12c_hd$predicted_prob)
+```
+
+```{r}
+# create plot of predicted result 
+ggplot(result, aes(x = dat12c_hd$genhlth2, y = Predicted_Prob), weights=dat12c_hd$wt4) +
+        geom_boxplot(fill = "lightblue", color = "blue") +
+        labs(x = "Self-rated general health for modgen3", y = "Predicted Probability")
+
+#there is a difference in the side by side boxplots 
+```
+
+#Binned residual plot
+```{r}
+library(arm)
+dat12c_hd$phat<-predict(modgen3,type="response")
+dat12c_hd$resid<-resid(modgen3,type="response")
+
+binnedplot(dat12c_hd$phat,dat12c_hd$resid)
+```
+
+#Plot of the EBLUPS for the random intercept
+```{r}
+qqnorm(ranef(modgen3)$intvid[,1]) 
+qqline(ranef(modgen3)$intvid[,1])
+```
+
+#AUC
+```{r, warning=FALSE, echo=FALSE, results='hide', message=FALSE, fig.show='hide'}
+#trying a different way to plot AUC with value
+library(ROCR)
+
+# Create prediction object
+m1.prediction <- prediction(dat12c_hd$phat, dat12c_hd$genhlth2)
+
+# Calculate AUC value
+m1.auc <- performance(m1.prediction, "auc")@y.values[[1]]
+m1.auc
+
+# Plot ROC curve
+m1.perf <- performance(m1.prediction, "tpr", "fpr")
+plot(m1.perf, main = "ROC Curve", col = "blue", lwd = 2)
+abline(a = 0, b = 1, lty = 2, lwd = 2)
+legend("bottomright", legend = paste("AUC = ", round(m1.auc, 2)), col = "blue", lwd = 2, bty = "n")
+
+#71%
+```
+
+############################################################
+
+#WITH DEPRESSION
+
+```{r}
+table(dat12c_hd$depr1, useNA = "always")
+
+dat12c_hd$depnew1 <- car::Recode(dat12c_hd$depr1, recodes="'No'=0; 'Yes'=1")
+ 
+table(dat12c_hd$depnew1, useNA = "always")
+```
+
+#FOR LOW WORKLOAD
+```{r}
+moddep1Low <- glmer(depr1 ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_lowWL)
+
+summary(moddep1Low)
+#sig
+#
+#
+moddep1LowN <- glmer(depnew1 ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_lowWL)
+
+summary(moddep1LowN)
+```
+
+#icc for Low
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance1 <- VarCorr(moddep1Low)$intvid[1]
+
+# Calculate ICC
+icc1 <- random_intercept_variance1 / (random_intercept_variance1 + pi^2 / 3)
+icc1
+#0.00
+#
+random_intercept_variance1N <- VarCorr(moddep1LowN)$intvid[1]
+
+# Calculate ICC
+icc1N <- random_intercept_variance1N / (random_intercept_variance1N + pi^2 / 3)
+icc1N
+#0.0003551129
+```
+
+#FOR MEDIUM WORKLOAD
+```{r}
+moddep1Med <- glmer(depr1 ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_MedWL)
+
+summary(moddep1Med)
+#sig
+
+moddep1MedN <- glmer(depnew1 ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_MedWL)
+
+summary(moddep1MedN)
+```
+
+#icc for MEDIUM
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance2 <- VarCorr(moddep1Med)$intvid[1]
+
+# Calculate ICC
+icc2 <- random_intercept_variance2 / (random_intercept_variance2 + pi^2 / 3)
+icc2
+#0.01
+#
+#
+# Extract variance of the random intercept from the model
+random_intercept_variance2N <- VarCorr(moddep1MedN)$intvid[1]
+
+# Calculate ICC
+icc2N <- random_intercept_variance2N / (random_intercept_variance2N + pi^2 / 3)
+icc2N
+#0.00875236
+```
+
+#FOR HIGH WORKLOAD
+```{r}
+moddep1H <- glmer(depr1 ~ 1 + (1 | intvid),
+                  weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_HWL)
+
+summary(moddep1H)
+#intercept sig
+
+moddep1HN <- glmer(depnew1 ~ 1 + (1 | intvid),
+                  weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_HWL)
+
+summary(moddep1HN)
+```
+
+#icc for HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance3 <- VarCorr(moddep1H)$intvid[1]
+
+# Calculate ICC
+icc3 <- random_intercept_variance3 / (random_intercept_variance3 + pi^2 / 3)
+icc3
+#0.01
+
+random_intercept_variance3N <- VarCorr(moddep1HN)$intvid[1]
+
+# Calculate ICC
+icc3N <- random_intercept_variance3N / (random_intercept_variance3N + pi^2 / 3)
+icc3N
+#0.007483209
+```
+
+
+#FOR VERY HIGH WORKLOAD
+```{r}
+moddep1VH <- glmer(depr1 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_VHWL)
+
+summary(moddep1VH)
+#intercept sig
+#
+#
+moddep1VHN <- glmer(depnew1 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_VHWL)
+
+summary(moddep1VHN)
+```
+
+#icc for VERY HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance4 <- VarCorr(moddep1VH)$intvid[1]
+
+# Calculate ICC
+icc4 <- random_intercept_variance4 / (random_intercept_variance4 + pi^2 / 3)
+icc4
+#0.02
+#
+random_intercept_variance4N <- VarCorr(moddep1VHN)$intvid[1]
+
+# Calculate ICC
+icc4N <- random_intercept_variance4N / (random_intercept_variance4N + pi^2 / 3)
+icc4N
+#0.0182969
+```
+
+*Slight increase
+
+#fitting a model with random intercept and random slope and FE of workload
+```{r}
+deprmod1N <- glmer(depnew1 ~ sex1 + ageF + race1 + (1 | intvid),
+                  weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(deprmod1N) 
+#RI var=0.4426
+```
+
+```{r}
+deprmod1aN <- glm(depnew1 ~ sex1 + ageF + race1,
+                  weights = wt4,
+                  family = binomial(link = "logit"),
+                 data = dat12c_hd)
+
+summary(deprmod1aN) 
+#significant
+```
+
+```{r}
+lrt.pvalue(deprmod1N, deprmod1aN)
+#significant
+```
+
+#fitting a model taking out random slope
+```{r}
+deprmod2N <- glmer(depnew1 ~ wkl + (1 | intvid),
+                  weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(deprmod2N)
+#none significant
+#RI var=0.4338
+#high correlation
+```
+
+```{r}
+depredN <- tbl_regression(deprmod2N, exp = T) %>% 
+  bold_p()
+
+depredN
+```
+
+```{r}
+save_as_docx(depredN, path = "C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\depredN.docx")
+```
+
+
+#LRT test
+```{r}
+lrt.pvalue(deprmod1N, deprmod2N)
+#significant
+```
+
+#percentage of the variance in the random intercepts is explained by workload
+```{r}
+#Extracting variance from random intercepts
+var1N <- VarCorr(deprmod1N)$intvid[1,1]  
+var1N
+
+var2N <- VarCorr(deprmod2N)$intvid[1,1]  
+var2N
+
+#Compute the reduction in variance:
+reduction_in_varianceN <- (var1N - var2N) / var1N
+reduction_in_varianceN*100
+
+#1.97% variance due to the intercept
+```
+
+
+#adding predictors to explain variance in intercept
+```{r}
+deprmod3N <- glmer(depnew1 ~ sex1 + ageF + race1 + marital1 + educa1 + employ1 + wkl + (1 | intvid),
+  weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(deprmod3N)
+#wkl not significant
+#RI var=0.893
+```
+
+
+```{r}
+depfullN <- tbl_regression(deprmod3N, exp = T) %>% 
+  bold_p()
+
+depfullN
+```
+
+```{r}
+save_as_docx(depfullN, path = "C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\depfullN.docx")
+```
+
+```{r}
+tbl_merge_ex4 <-
+  tbl_merge( #Table merge function
+    tbls = list(depredN, depfullN), # Selecting the tables to be included in the combined table output 
+    # More objects can be added here
+    tab_spanner = c("**Reduced model**", "**Full model**") # Naming the models
+  ) %>% 
+  bold_labels()%>% 
+  italicize_levels()%>% 
+  as_flex_table() #gtsummary packages can crete objects as gt, flextable or huxtable, and many more. These are useful pacakges to further formatting tables according to presentation and publication needs.
+
+#as_gt() 
+
+tbl_merge_ex4
+```
+
+```{r}
+save_as_docx(tbl_merge_ex4, path = "C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\deptableN.docx")
+```
+
+
+```{r}
+table(dat12c_hd$depr1, useNA = "always")
+
+dat12c_hd$depnew1 <- car::Recode(dat12c_hd$depr1, recodes="'No'=0; 'Yes'=1")
+ 
+table(dat12c_hd$depnew1, useNA = "always")
+```
+
+```{r}
+deprmod4 <- glmer(depnew1 ~ sex1 + ageF + race1 + marital1 + educa1 + employ1 + wkl + (1 | intvid),
+  weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(deprmod4)
+#wkl not significant
+#RI var=0.893
+```
+
+```{r}
+depfull1 <- tbl_regression(deprmod4, exp = T) %>% 
+  bold_p()
+
+depfull1
+```
+
+```{r}
+AIC(deprmod2, deprmod3) #deprmod3 has the lowest AIC
+BIC(deprmod2, deprmod3) #deprmod3 has the lowest AIC
+```
+
+
+#Model diagnostic
+```{r}
+# compute predicted probability
+dat12c_hd$predicted_prob <- predict(deprmod3, newdata = dat12c_hd, type = "response")
+
+# Combine predicted probabilities with the original dataset
+result <- data.frame(dat12c_hd$depr1, Predicted_Prob = dat12c_hd$predicted_prob)
+```
+
+```{r}
+# create plot of predicted result 
+ggplot(result, aes(x = dat12c_hd$depr1, y = Predicted_Prob), weights=dat12c_hd$wt4) +
+        geom_boxplot(fill = "lightblue", color = "blue") +
+        labs(x = "Having depression for modgen3", y = "Predicted Probability")
+
+#there is a difference in the side by side boxplots 
+```
+
+
+#Plot of the EBLUPS for the random intercept
+```{r}
+qqnorm(ranef(deprmod3)$intvid[,1]) 
+qqline(ranef(deprmod3)$intvid[,1])
+```
+
+#Binned residual plot
+```{r}
+library(arm)
+dat12c_hd$phat<-predict(deprmod3,type="response")
+dat12c_hd$resid<-resid(deprmod3,type="response")
+
+binnedplot(dat12c_hd$phat,dat12c_hd$resid)
+```
+
+#AUC
+```{r, warning=FALSE, echo=FALSE, results='hide', message=FALSE, fig.show='hide'}
+#trying a different way to plot AUC with value
+library(ROCR)
+
+# Create prediction object
+m1.prediction <- prediction(dat12c_hd$phat, dat12c_hd$depr1)
+
+# Calculate AUC value
+m1.auc <- performance(m1.prediction, "auc")@y.values[[1]]
+m1.auc
+
+# Plot ROC curve
+m1.perf <- performance(m1.prediction, "tpr", "fpr")
+plot(m1.perf, main = "ROC Curve", col = "blue", lwd = 2)
+abline(a = 0, b = 1, lty = 2, lwd = 2)
+legend("bottomright", legend = paste("AUC = ", round(m1.auc, 2)), col = "blue", lwd = 2, bty = "n")
+
+#32%
+```
+
+```{r}
+# Cigarette.Study$Cig.Plus.1 <- Cigarettes+1
+# Cigarette.Study$Cig.Log <- log10(Cigarette.Study$Cig.Plus.1)
+# dat12c_hd$depr1.1 <- dat12c_hd$depr1+1
+```
+
+
+***********************************************************************
+
+#WITH EXERCISE
+
+```{r}
+table(dat12c_hd$exer1, useNA = "always")
+
+dat12c_hd$exernew <- car::Recode(dat12c_hd$exer1, recodes="'No'=0; 'Yes'=1")
+ 
+table(dat12c_hd$exernew, useNA = "always")
+```
+
+
+#FOR LOW WORKLOAD
+```{r}
+modex1Low <- glmer(exer1 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_lowWL)
+
+summary(modex1Low)
+#sign
+#
+modex1LowN <- glmer(exernew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_lowWL)
+
+summary(modex1LowN)
+```
+
+#icc for Low
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance1 <- VarCorr(modex1Low)$intvid[1]
+
+# Calculate ICC
+icc1 <- random_intercept_variance1 / (random_intercept_variance1 + pi^2 / 3)
+icc1
+#0.04
+#
+random_intercept_variance1N <- VarCorr(modex1LowN)$intvid[1]
+
+# Calculate ICC
+icc1N <- random_intercept_variance1N / (random_intercept_variance1N + pi^2 / 3)
+icc1N
+#0.03802737
+```
+
+#FOR MEDIUM WORKLOAD
+```{r}
+modex1Med <- glmer(exer1 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_MedWL)
+
+summary(modex1Med)
+#sign
+#
+modex1MedN <- glmer(exernew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_MedWL)
+
+summary(modex1MedN)
+```
+
+#icc for MEDIUM
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance2 <- VarCorr(modex1Med)$intvid[1]
+
+# Calculate ICC
+icc2 <- random_intercept_variance2 / (random_intercept_variance2 + pi^2 / 3)
+icc2
+#0.04
+#
+#
+random_intercept_variance2N <- VarCorr(modex1MedN)$intvid[1]
+
+# Calculate ICC
+icc2N <- random_intercept_variance2N / (random_intercept_variance2N + pi^2 / 3)
+icc2N
+#0.03567
+```
+
+#FOR HIGH WORKLOAD
+```{r}
+modex1H <- glmer(exer1 ~ 1 + (1 | intvid),
+                 weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_HWL)
+
+summary(modex1H)
+#intercept sig
+#
+modex1HN <- glmer(exernew ~ 1 + (1 | intvid),
+                 weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_HWL)
+
+summary(modex1HN)
+```
+
+#icc for HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance3 <- VarCorr(modex1H)$intvid[1]
+
+# Calculate ICC
+icc3 <- random_intercept_variance3 / (random_intercept_variance3 + pi^2 / 3)
+icc3
+#0.03
+#
+random_intercept_variance3N <- VarCorr(modex1HN)$intvid[1]
+
+# Calculate ICC
+icc3N <- random_intercept_variance3N / (random_intercept_variance3N + pi^2 / 3)
+icc3N
+#0.02903089
+```
+
+
+#FOR VERY HIGH WORKLOAD
+```{r}
+modex1VH <- glmer(exer1 ~ 1 + (1 | intvid),
+                  weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_VHWL)
+
+summary(modex1VH)
+#intercept sig
+
+modex1VHN <- glmer(exernew ~ 1 + (1 | intvid),
+                  weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_VHWL)
+
+summary(modex1VHN)
+```
+
+#icc for VERY HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance4 <- VarCorr(modex1VH)$intvid[1]
+
+# Calculate ICC
+icc4 <- random_intercept_variance4 / (random_intercept_variance4 + pi^2 / 3)
+icc4
+#0.02
+#
+random_intercept_variance4N <- VarCorr(modex1VHN)$intvid[1]
+
+# Calculate ICC
+icc4N <- random_intercept_variance4N / (random_intercept_variance4N + pi^2 / 3)
+icc4N
+#0.02080422
+```
+
+*ICC decreasing
+
+
+#fitting a model with random intercept and random slope and FE of workload
+```{r}
+exermod1N <- glmer(exernew ~  wkl + sex1 + ageF + race1 + (1 | intvid),
+                  weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(exermod1N)
+#int significant
+#RI var=0.7894
+```
+
+```{r}
+exermod1aN <- glm(exernew ~ wkl + sex1 + ageF + race1,
+                  weights = wt4,
+                  family = binomial(link = "logit"),
+                 data = dat12c_hd)
+
+summary(exermod1aN) 
+```
+
+```{r}
+lrt.pvalue(exermod1N, exermod1aN)
+#0: p<0.05
+```
+
+#fitting a model taking out random slope
+```{r}
+exermod2N <- glmer(exernew ~ wkl + (1 | intvid),
+                  weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(exermod2N)
+#wkl not significant
+#RI var=0.4668 
+```
+
+```{r}
+set_gtsummary_theme(theme_gtsummary_compact(set_theme = TRUE))
+exerredN <-tbl_regression(exermod2N, exp = T)%>%
+  bold_p()
+
+exerredN
+```
+
+```{r}
+save_as_docx(exerredN, path = "C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\exerredN.docx")
+```
+
+
+#LRT test
+```{r}
+lrt.pvalue(exermod1N, exermod2N)
+#0
+#sig
+```
+
+#percentage of the variance in the random intercepts is explained by workload
+```{r}
+#Extracting variance from random intercepts
+var1N <- VarCorr(exermod1N)$intvid[1,1]  
+var1N
+
+var2N <- VarCorr(exermod2N)$intvid[1,1]  
+var2N
+
+#Compute the reduction in variance:
+reduction_in_varianceN <- (var2N - var1N) / var1N
+reduction_in_varianceN*100
+
+#4.53% variance due to the intercept
+#
+#new % is 7.82
+```
+
+#adding predictors to explain variance in intercept
+```{r}
+#W/ workload as both FE and RE
+exermod3N <- glmer(exernew ~ sex1 + ageF + race1 + marital1 + educa1 + employ1 + wkl
+               + (1 | intvid),
+               weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(exermod3N)
+#wkl not sig
+#RI var=0.8509
+```
+
+```{r}
+lrt.pvalue(exermod2N, exermod3N)
+#sig
+```
+
+```{r}
+set_gtsummary_theme(theme_gtsummary_compact(set_theme = TRUE))
+exerfullN <-tbl_regression(exermod3N, exp = T) %>% 
+  bold_p() 
+
+exerfullN
+```
+
+```{r}
+save_as_docx(exerfullN, path = "C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\exerfullN.docx")
+```
+
+```{r}
+tbl_merge_ex1 <-
+  tbl_merge( #Table merge function
+    tbls = list(exerredN, exerfullN), # Selecting the tables to be included in the combined table output 
+    # More objects can be added here
+    tab_spanner = c("**Reduced model**", "**Full model**") # Naming the models
+  ) %>% 
+  bold_labels()%>% 
+  italicize_levels()%>% 
+  as_flex_table() #gtsummary packages can crete objects as gt, flextable or huxtable, and many more. These are useful pacakges to further formatting tables according to presentation and publication needs.
+
+#as_gt() 
+
+tbl_merge_ex1
+```
+
+```{r}
+save_as_docx(tbl_merge_ex1, path = "C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\exertableN.docx")
+```
+
+```{r}
+AIC(exermod2N, exermod3N) #mod3 has the lowest AIC
+BIC(exermod2N, exermod3N) #mod3 has the lowest AIC
+```
+
+#removing employment 
+```{r}
+exermod3a <- glmer(exer1 ~ sex1 + ageF + race1 + marital1 + educa1 + wkl
+               + (1 | intvid),
+               weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(exermod3a)
+#33% AUC
+```
+
+#removing education and marital stat
+```{r}
+exermod3b <- glmer(exer1 ~ sex1 + ageF + race1 + wkl
+               + (1 | intvid),
+               weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(exermod3b)
+#39%
+```
+
+#removing education and marital stat
+```{r}
+exermod3c <- glmer(exer1 ~ sex1 + ageF + wkl
+               + (1 | intvid),
+               weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(exermod3c)
+#39%
+```
+
+#Model diagnostic
+```{r}
+# compute predicted probability
+dat12c_hd$predicted_prob <- predict(exermod3N, newdata = dat12c_hd, type = "response")
+
+# Combine predicted probabilities with the original dataset
+result <- data.frame(dat12c_hd$exernew, Predicted_Prob = dat12c_hd$predicted_prob)
+
+# Print the result
+head(result)
+```
+
+```{r}
+# create plot of predicted result 
+ggplot(result, aes(x = dat12c_hd$exernew, y = Predicted_Prob), weights=dat12c_hd$wt4) +
+        geom_boxplot(fill = "lightblue", color = "blue") +
+        labs(x = "Doing exercise for exermod3", y = "Predicted Probability")
+
+#there is a difference in the side by side boxplots 
+```
+
+
+#Plot of the EBLUPS for the random intercept
+```{r}
+qqnorm(ranef(exermod3N)$intvid[,1]) 
+qqline(ranef(exermod3N)$intvid[,1])
+
+# library(sjPlot)
+# random_effects <- ranef(exermod3)
+# sjp.efc(random_effects$intvid, sort.random = TRUE)
+
+
+```
+
+#Binned residual plot
+```{r}
+library(arm)
+dat12c_hd$phat<-predict(exermod3N,type="response")
+dat12c_hd$resid<-resid(exermod3N,type="response")
+
+binnedplot(dat12c_hd$phat,dat12c_hd$resid)
+```
+
+#AUC
+```{r, warning=FALSE, echo=FALSE, results='hide', message=FALSE, fig.show='hide'}
+#trying a different way to plot AUC with value
+library(ROCR)
+
+# Create prediction object
+m1.prediction <- prediction(dat12c_hd$phat, dat12c_hd$exer1)
+
+# Calculate AUC value
+m1.auc <- performance(m1.prediction, "auc")@y.values[[1]]
+m1.auc
+
+# Plot ROC curve
+m1.perf <- performance(m1.prediction, "tpr", "fpr")
+plot(m1.perf, main = "ROC Curve of Exercise", col = "blue", lwd = 2)
+abline(a = 0, b = 1, lty = 2, lwd = 2)
+legend("bottomright", legend = paste("AUC = ", round(m1.auc, 2)), col = "blue", lwd = 2, bty = "n")
+
+#31%
+```
+
+```{r}
+AIC(exermod1, exermod2) #mod3 has the lowest AIC
+BIC(exermod2, exermod3) #mod3 has the lowest AIC
+```
+
+
+```{r}
+# dat12c_hd$exer1s <- sqrt(dat12c_hd$exer1)
+# Cigarette.Study$Cig.Log <- log10(Cigarette.Study$Cig.Plus.1)
+
+```
+
+```{r}
+# plot(exermod3)
+# 
+# # Assuming your model is stored in 'my_model'
+# predicted_probs <- predict(my_model, type = "response")
+# 
+# # Plot the distribution of predicted probabilities
+# hist(dat12c_hd$phat, main = "Distribution of Predicted Probabilities", xlab = "Predicted Probabilities")
+
+```
+
+```{r}
+# Assuming your model is stored in 'mixed_model'
+eblups <- ranef(exermod3)$intvid
+
+# Extract EBLUPs as a numeric vector
+eblup_values <- as.numeric(unlist(eblups))
+
+# Create a boxplot to visualize the distribution
+plot(eblup_values, main = "Distribution of EBLUPs", ylab = "EBLUPs")
+```
+
+
+
+
+
+*******************************************************************************
+
+#WITH CVD
+
+#FOR LOW WORKLOAD
+```{r}
+modcvd1Low <- glmer(cvd1 ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_lowWL)
+
+summary(modcvd1Low)
+
+```
+
+#icc for Low
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance1 <- VarCorr(modcvd1Low)$intvid[1]
+
+# Calculate ICC
+icc1 <- random_intercept_variance1 / (random_intercept_variance1 + pi^2 / 3)
+icc1
+#0.02
+```
+
+#FOR MEDIUM WORKLOAD
+```{r}
+modcvd1Med <- glmer(cvd1 ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_MedWL)
+
+summary(modcvd1Med)
+#sig
+```
+
+#icc for MEDIUM
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance2 <- VarCorr(modcvd1Med)$intvid[1]
+
+# Calculate ICC
+icc2 <- random_intercept_variance2 / (random_intercept_variance2 + pi^2 / 3)
+icc2
+#0.02
+```
+
+#FOR HIGH WORKLOAD
+```{r}
+modcvd1H <- glmer(cvd1 ~ 1 + (1 | intvid),
+                  weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_HWL)
+
+summary(modcvd1H)
+#intercept sig
+```
+
+#icc for HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance3 <- VarCorr(modcvd1H)$intvid[1]
+
+# Calculate ICC
+icc3 <- random_intercept_variance3 / (random_intercept_variance3 + pi^2 / 3)
+icc3
+#0.06
+```
+
+
+#FOR VERY HIGH WORKLOAD
+```{r}
+modcvd1VH <- glmer(cvd1 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_VHWL)
+
+summary(modcvd1VH)
+#intercept sig
+```
+
+#icc for VERY HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance4 <- VarCorr(modcvd1VH)$intvid[1]
+
+# Calculate ICC
+icc4 <- random_intercept_variance4 / (random_intercept_variance4 + pi^2 / 3)
+icc4
+#0.09
+```
+
+#fitting a model with random intercept and random slope and FE of workload
+```{r}
+cvdmod1 <- glmer(cvd1 ~ wkl + sex1 + ageF + race1 + (1 | intvid),
+                 weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(cvdmod1)
+#int sig
+#RI=1.717
+```
+
+```{r}
+cvdmod1a <- glm(cvd1 ~ wkl + sex1 + ageF + race1,
+                 weights = wt4,
+                  family = binomial(link = "logit"),
+                data = dat12c_hd)
+
+summary(cvdmod1a) 
+```
+
+#LRT test
+```{r}
+lrt.pvalue(cvdmod1, cvdmod1a)
+#0: P<0.05
+```
+
+#fitting a model taking out random slope
+```{r}
+cvdmod2 <- glmer(cvd1 ~ wkl + (1 | intvid),
+                 weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(cvdmod2)
+#wkl not sig
+#RI var=1.687
+```
+
+#LRT test
+```{r}
+lrt.pvalue(cvdmod1, cvdmod2)
+#0: P<0.05
+```
+
+#percentage of the variance in the random intercepts is explained by workload
+```{r}
+#Extracting variance from random intercepts
+var1 <- VarCorr(cvdmod1)$intvid[1,1]  
+var1
+
+var2 <- VarCorr(cvdmod2)$intvid[1,1]  
+var2
+
+#Compute the reduction in variance:
+reduction_in_variance <- (var1 - var2) / var1
+reduction_in_variance*100
+
+#1.75% variance due to the intercept
+```
+
+
+#adding predictors to explain variance in intercept
+
+```{r}
+#W/ workload as both FE and RE
+cvdmod3 <- glmer(cvd1 ~ sex1 + ageF + race1 + marital1 + educa1 + employ1 + wkl + (1 | intvid),
+                 weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(cvdmod3)
+#WKl Med and VH marginally significant
+#RI=1.882
+```
+
+```{r}
+tbl_regression(cvdmod3, exp = T)
+```
+
+```{r}
+lrt.pvalue(cvdmod3, cvdmod2)
+#sig
+```
+
+```{r}
+AIC(cvdmod2, cvdmod3) #mod3 has the lowest AIC
+BIC(cvdmod2, cvdmod3) #mod3 has the lowest AIC
+```
+
+
+#Model diagnostic
+#cvdmod3
+```{r}
+# compute predicted probability
+dat12c_hd$predicted_prob <- predict(cvdmod3, newdata = dat12c_hd, type = "response")
+
+# Combine predicted probabilities with the original dataset
+result <- data.frame(dat12c_hd$cvd1, Predicted_Prob = dat12c_hd$predicted_prob)
+
+# Print the result
+head(result)
+```
+
+```{r}
+# create plot of predicted result 
+ggplot(result, aes(x = dat12c_hd$cvd1, y = Predicted_Prob), weights=dat12c_hd$wt4) +
+        geom_boxplot(fill = "lightblue", color = "blue") +
+        labs(x = "CVD for cvdmod3", y = "Predicted Probability")
+
+#there is a difference in the side by side boxplots 
+```
+
+
+#Plot of the EBLUPS for the random intercept
+```{r}
+qqnorm(ranef(cvdmod3)$intvid[,1]) 
+qqline(ranef(cvdmod3)$intvid[,1])
+```
+
+****************************************************
+
+#FOR HEALTH COVERAGE
+
+```{r}
+table(dat12c_hd$hlthcov1, useNA = "always")
+
+dat12c_hd$hcovnew <- car::Recode(dat12c_hd$hlthcov1, recodes="'No'=0; 'Yes'=1")
+ 
+table(dat12c_hd$hcovnew, useNA = "always")
+```
+
+#FOR LOW WORKLOAD
+```{r}
+modhcovLowN <- glmer(hcovnew ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_lowWL)
+
+summary(modhcovLowN)
+```
+
+#icc for Low
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance1N <- VarCorr(modhcovLowN)$intvid[1]
+
+# Calculate ICC
+icc1N <- random_intercept_variance1N / (random_intercept_variance1N + pi^2 / 3)
+icc1N
+#0.03
+```
+
+#FOR MEDIUM WORKLOAD
+```{r}
+modhcovMedN <- glmer(hcovnew ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_MedWL)
+
+summary(modhcovMedN)
+
+```
+
+#icc for MEDIUM
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance2N <- VarCorr(modhcovMedN)$intvid[1]
+
+# Calculate ICC
+icc2N <- random_intercept_variance2N / (random_intercept_variance2N + pi^2 / 3)
+icc2N
+#0.02
+```
+
+#FOR HIGH WORKLOAD
+```{r}
+modhcovHN <- glmer(hcovnew ~ 1 + (1 | intvid),
+                  weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_HWL)
+
+summary(modhcovHN)
+#intercept sig
+```
+
+#icc for HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance3N <- VarCorr(modhcovHN)$intvid[1]
+
+# Calculate ICC
+icc3N <- random_intercept_variance3N / (random_intercept_variance3N + pi^2 / 3)
+icc3N
+#0.05
+#
+#0.04495665 NEW
+```
+
+
+#FOR VERY HIGH WORKLOAD
+```{r}
+modhcovVHN <- glmer(hcovnew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_VHWL)
+
+summary(modhcovVHN)
+#intercept sig
+```
+
+#icc for VERY HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance4N <- VarCorr(modhcovVHN)$intvid[1]
+
+# Calculate ICC
+icc4N <- random_intercept_variance4N / (random_intercept_variance4N + pi^2 / 3)
+icc4N
+#0.08
+```
+
+*increase
+
+#fitting a model with random intercept and random slope and FE of workload
+```{r}
+hcovmod1N <- glmer(hcovnew ~ wkl + sex1 + ageF + race1 + (1 | intvid),
+                 weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(hcovmod1N)
+#sig
+```
+
+```{r}
+hcovmod1aN <- glm(hcovnew ~ wkl + sex1 + ageF + race1,
+                 weights = wt4,
+                  family = binomial(link = "logit"),
+                 data = dat12c_hd)
+
+summary(hcovmod1aN) 
+```
+
+#LRT test
+```{r}
+lrt.pvalue(hcovmod1N, hcovmod1aN)
+#sig
+```
+
+#fitting a model taking out random slope
+```{r}
+hcovmod2N <- glmer(hcovnew ~ wkl + (1 | intvid),
+                 weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(hcovmod2N)
+#wkl not sig
+#RI=1.357
+#high corr
+```
+
+```{r}
+hcovredN <-tbl_regression(hcovmod2N, exp = T) %>% 
+  bold_p()
+
+hcovredN
+```
+
+```{r}
+save_as_docx(hcovredN, path = "C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\hcovredN.docx")
+```
+
+
+#LRT test
+```{r}
+lrt.pvalue(hcovmod1N, hcovmod2N)
+#sig
+```
+
+#percentage of the variance in the random intercepts is explained by workload
+```{r}
+#Extracting variance from random intercepts
+var1N <- VarCorr(hcovmod1N)$intvid[1,1]  
+var1N
+
+var2N <- VarCorr(hcovmod2N)$intvid[1,1]  
+var2N
+
+#Compute the reduction in variance:
+reduction_in_varianceN <- (var2N - var1N) / var1
+reduction_in_varianceN*100
+
+#16.9% variance due to the intercept
+```
+
+
+#adding predictors to explain variance in intercept
+
+```{r}
+#W/ workload as both FE and RE
+hcovmod3N <- glmer(hcovnew ~ sex1 + ageF + race1 + marital1 + educa1 + employ1 + wkl + (1 | intvid),
+                 weights = wt4,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_hd)
+
+summary(hcovmod3N)
+#wkl not sign
+#RI=1.284
+```
+
+```{r}
+hcovfullN <-tbl_regression(hcovmod3N, exp = T) %>% 
+  bold_p()
+
+hcovfullN
+```
+
+```{r}
+save_as_docx(hcovmod3N, path = "C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\hcovfullN.docx")
+```
+
+```{r}
+tbl_merge_ex2 <-
+  tbl_merge( #Table merge function
+    tbls = list(hcovredN, hcovfullN), # Selecting the tables to be included in the combined table output 
+    # More objects can be added here
+    tab_spanner = c("**Reduced model**", "**Full model**") # Naming the models
+  ) %>% 
+  bold_labels()%>% 
+  italicize_levels()%>% 
+  as_flex_table() #gtsummary packages can crete objects as gt, flextable or huxtable, and many more. These are useful pacakges to further formatting tables according to presentation and publication needs.
+
+#as_gt() 
+
+tbl_merge_ex2
+```
+
+```{r}
+save_as_docx(tbl_merge_ex2, path = "C:\\Users\\ilmul\\Documents\\UMICH\\Winter 2024\\721\\BRFSS12\\hcovtableN.docx")
+```
+
+```{r}
+lrt.pvalue(hcovmod3, hcovmod2)
+#sig
+```
+
+```{r}
+AIC(hcovmod2, hcovmod3) #hcovmod3 has the lowest AIC
+BIC(hcovmod2, hcovmod3) #hcovmod3 has the lowest AIC
+```
+
+
+#Model diagnostic
+
+```{r}
+# compute predicted probability
+dat12c_hd$predicted_prob <- predict(hcovmod3, newdata = dat12c_hd, type = "response")
+
+# Combine predicted probabilities with the original dataset
+result <- data.frame(dat12c_hd$hlthcov1, Predicted_Prob = dat12c_hd$predicted_prob)
+
+# Print the result
+head(result)
+```
+
+```{r}
+# create plot of predicted result 
+ggplot(result, aes(x = dat12c_hd$hlthcov1, y = Predicted_Prob), weights=dat12c_hd$wt4) +
+        geom_boxplot(fill = "lightblue", color = "blue") +
+        labs(x = "Health coverage for hcovmod3", y = "Predicted Probability")
+
+#there is a difference in the side by side boxplots 
+```
+
+
+#Plot of the EBLUPS for the random intercept
+```{r}
+qqnorm(ranef(hcovmod3)$intvid[,1]) 
+qqline(ranef(hcovmod3)$intvid[,1])
+```
+
+
+#Binned residual plot
+```{r}
+library(arm)
+dat12c_hd$phat<-predict(hcovmod3,type="response")
+dat12c_hd$resid<-resid(hcovmod3,type="response")
+
+binnedplot(dat12c_hd$phat,dat12c_hd$resid)
+```
+
+#AUC
+```{r, warning=FALSE, echo=FALSE, results='hide', message=FALSE, fig.show='hide'}
+#trying a different way to plot AUC with value
+library(ROCR)
+
+# Create prediction object
+m1.prediction <- prediction(dat12c_hd$phat, dat12c_hd$hlthcov1)
+
+# Calculate AUC value
+m1.auc <- performance(m1.prediction, "auc")@y.values[[1]]
+m1.auc
+
+# Plot ROC curve
+m1.perf <- performance(m1.prediction, "tpr", "fpr")
+plot(m1.perf, main = "ROC Curve of Exercise", col = "blue", lwd = 2)
+abline(a = 0, b = 1, lty = 2, lwd = 2)
+legend("bottomright", legend = paste("AUC = ", round(m1.auc, 2)), col = "blue", lwd = 2, bty = "n")
+
+#31%
+```
+
+```{r}
+# Assuming your model is stored in 'mixed_model'
+eblups1 <- ranef(hcovmod3)$intvid
+
+# Extract EBLUPs as a numeric vector
+eblup_values1 <- as.numeric(unlist(eblups1))
+
+# Create a boxplot to visualize the distribution
+plot(eblup_values1, main = "Distribution of EBLUPs for Any Health Coverage", ylab = "EBLUPs")
+```
+
+
+
+
+
+
+
+################### Tables and Figures####################################
+
+#ICC tables
+
+#For general health
+```{r}
+# Assuming you have a vector of ICC values
+icc_values1 <- c(0.03, 0.05, 0.04, 0.01)
+
+# Assuming you have a vector of workload categories
+workload_categories <- c("Low", "Medium", "High", "Very High")
+
+# Create a data frame
+data1 <- data.frame(Workload = workload_categories, ICC1 = icc_values1)
+
+# Plot the barplot
+barplot(data1$ICC1, names.arg = data1$Workload, col = "lightblue", main = "ICC of Workload Groups for Self-rated General Health", xlab = "Workload Groups", ylab = "ICC")
+
+# Add ICC values on top of each bar
+text(x = barplot(data1$ICC1, col = "blue", plot = FALSE), y = data1$ICC1, label = round(data1$ICC1, 2), pos = 1.5, cex = 0.8, col = "black")
+```
+
+#for Depression
+```{r}
+# Assuming you have a vector of ICC values
+icc_values2 <- c(0.00, 0.01, 0.01, 0.02)
+
+# Assuming you have a vector of workload categories
+workload_categories <- c("Low", "Medium", "High", "Very High")
+
+# Create a data frame
+data2 <- data.frame(Workload = workload_categories, ICC2 = icc_values2)
+
+# Plot the barplot
+barplot(data2$ICC2, names.arg = data2$Workload, col = "lightblue", main = "ICC of Workload Groups for Any Depression", xlab = "Workload Groups", ylab = "ICC")
+
+# Add ICC values on top of each bar
+text(x = barplot(data2$ICC2, col = "blue", plot = FALSE), y = data2$ICC2, label = round(data2$ICC2, 2), pos = 1.5, cex = 0.8, col = "black")
+```
+
+#for Exercise
+```{r}
+# Assuming you have a vector of ICC values
+icc_values3 <- c(0.04, 0.04, 0.03, 0.02)
+
+# Assuming you have a vector of workload categories
+workload_categories <- c("Low", "Medium", "High", "Very High")
+
+# Create a data frame
+data3 <- data.frame(Workload = workload_categories, ICC3 = icc_values3)
+
+# Plot the barplot
+barplot(data3$ICC3, names.arg = data3$Workload, col = "lightblue", main = "ICC of Workload Groups for Any Exercise", xlab = "Workload Groups", ylab = "ICC")
+
+# Add ICC values on top of each bar
+text(x = barplot(data3$ICC3, col = "blue", plot = FALSE), y = data3$ICC3, label = round(data3$ICC3, 2), pos = 1.5, cex = 0.8, col = "black")
+```
+
+#for health coverage
+```{r}
+# Assuming you have a vector of ICC values
+icc_values4 <- c(0.03, 0.02, 0.05, 0.08)
+
+# Assuming you have a vector of workload categories
+workload_categories <- c("Low", "Medium", "High", "Very High")
+
+# Create a data frame
+data4 <- data.frame(Workload = workload_categories, ICC4 = icc_values4)
+
+# Plot the barplot
+barplot(data4$ICC4, names.arg = data4$Workload, col = "lightblue", main = "ICC of Workload Groups for Any Health coverage", xlab = "Workload Groups", ylab = "ICC")
+
+# Add ICC values on top of each bar
+text(x = barplot(data4$ICC4, col = "blue", plot = FALSE), y = data4$ICC4, label = round(data4$ICC4, 2), pos = 1.5, cex = 0.8, col = "black")
+```
+
+
+#Checking workload levels for the 4 outcome variables
+```{r}
+table(dat12c_hd$genhlth2, dat12c_hd$wkl) 
+table(dat12c_hd$hlthcov1, dat12c_hd$wkl) 
+table(dat12c_hd$depr1, dat12c_hd$wkl) 
+table(dat12c_hd$exer1, dat12c_hd$wkl) 
+```
+For each of the four outcome variables, the total are the same and totals to the overall workload level
+
+#Calculating the length of questions
+
+#counting characters
+```{r}
+nchar("Would you say that in general your health is")
+```
+
+#counting words
+```{r}
+library(stringi)
+
+genhlthwords <- stri_count_words("Would you say that in general your health is")
+genhlthwords #9
+
+hcovwords <- stri_count_words("Do you have any kind of health care coverage, including health   insurance, prepaid plans such as HMOs, government plans such as Medicare, or Indian Health Service?")
+hcovwords #26
+
+deprwords <- stri_count_words("During the past month, other than your regular job, did you participate in any physical activities or exercises such as running, calisthenics, golf, gardening, or walking for exercise?")
+deprwords #28
+
+exerwords <- stri_count_words("Now thinking about your mental health, which includes stress, depression, and problems with emotions, for how many days during the past 30 days was your mental health not good")
+exerwords #29
+```
+
+#Creating icc table across workloads to address paper feedback
+```{r}
+icc_low <- c(0.03, 0.00, 0.04, 0.03)
+
+low_outcomes <- c("SRH", "Depression", "Exercise", "Health coverage")
+
+# Create a data frame
+datanew <- data.frame(outcomes = low_outcomes, iccL = icc_low)
+
+# Plot the barplot
+barplot(datanew$iccL, names.arg = datanew$outcomes, col = "lightyellow", main = "ICC in Low Workload Group", xlab = "Health Outcomes", ylab = "ICC")
+
+# Add ICC values on top of each bar
+text(x = barplot(datanew$iccL, col = "blue", plot = FALSE), y = datanew$iccL, label = round(datanew$iccL, 2), pos = 1.5, cex = 0.8, col = "black")
+```
+
+```{r}
+# Define the data
+icc_low1 <- c(0.03, 0.00, 0.04, 0.03)
+low_outcomes1 <- c("SRH", "Depression", "Exercise", "Health coverage")
+
+# Create a data frame
+datanew1 <- data.frame(outcomes = low_outcomes1, iccL = icc_low1)
+
+# Create the plot
+plot(icc_low1, type = "o", col = "violet", ylim = c(0, max(icc_low1) + 0.05), 
+     main = "ICC in Low Workload Group", xlab = "Health Outcomes", ylab = "ICC")
+
+# Add the labels
+text(1:length(low_outcomes1), icc_low1, labels = round(icc_low1, 2), pos = 3, col = "black")
+
+# Add the x-axis ticks and labels
+#axis(1, at = 1:length(low_outcomes1), labels = low_outcomes1)
+
+axis(1, at = 1:length(low_outcomes1), labels = low_outcomes1, tick = FALSE)
+
+```
+
+#LOW WORKLOAD
+```{r}
+# Define the data
+icc_low1 <- c(0.00, 0.03, 0.03, 0.04)
+low_outcomes1 <- c("Depression", "Self-rated General Health", "Health coverage", "Exercise")
+
+# Create a data frame
+datanew1 <- data.frame(outcomes = low_outcomes1, iccL = icc_low1)
+
+# Create the plot without x-axis
+plot(icc_low1, type = "o", col = "darkgreen", ylim = c(0, max(icc_low1) + 0.05), 
+     main = "ICC in Low Workload Group", xlab = "", ylab = "ICC", xaxt = "n", lwd = 2)
+
+# Add the labels
+text(1:length(low_outcomes1), icc_low1, labels = round(icc_low1, 2), pos = 3, col = "black")
+
+# Add custom x-axis with just the labels
+axis(1, at = 1:length(low_outcomes1), labels = low_outcomes1, tick = FALSE)
+```
+
+
+#MEDIUM WORKLOAD
+```{r}
+# Define the data
+icc_med <- c(0.01, 0.02, 0.04, 0.05)
+med_outcomes <- c("Depression", "Health coverage", "Exercise", "Self-rated general health")
+
+# Create a data frame
+datanew2 <- data.frame(outcomes = med_outcomes, iccM = icc_med)
+
+# Create the plot without x-axis
+plot(icc_med, type = "o", col = "darkgreen", ylim = c(0, max(icc_med) + 0.05), 
+     main = "ICC in Medium Workload Group", xlab = "", ylab = "ICC", xaxt = "n", lwd = 2)
+
+# Add the labels
+text(1:length(med_outcomes), icc_med, labels = round(icc_med, 2), pos = 3, col = "black")
+
+# Add custom x-axis with just the labels
+axis(1, at = 1:length(med_outcomes), labels = med_outcomes, tick = FALSE)
+```
+
+#HIGH WORKLOAD
+```{r}
+# Define the data
+icc_high <- c(0.01, 0.03, 0.04, 0.05)
+hi_outcomes <- c("Depression", "Exercise", "Self-rated general health", "Health coverage")
+
+# Create a data frame
+datanew3 <- data.frame(outcomes = hi_outcomes, iccH = icc_high)
+
+# Create the plot without x-axis
+plot(icc_high, type = "o", col = "darkgreen", ylim = c(0, max(icc_high) + 0.05), 
+     main = "ICC in High Workload Group", xlab = "", ylab = "ICC", xaxt = "n", lwd = 2)
+
+# Add the labels
+text(1:length(hi_outcomes), icc_high, labels = round(icc_high, 2), pos = 3, col = "black")
+
+# Add custom x-axis with just the labels
+axis(1, at = 1:length(hi_outcomes), labels = hi_outcomes, tick = FALSE)
+```
+
+
+#VERY HIGH WORKLOAD
+```{r}
+# Define the data
+icc_vh <- c(0.01, 0.02, 0.02, 0.08)
+vh_outcomes <- c("Self-rated general health", "Depression", "Exercise", "Health coverage")
+
+# Create a data frame
+datanew4 <- data.frame(outcomes = vh_outcomes, iccH = icc_vh)
+
+# Create the plot without x-axis
+plot(icc_vh, type = "o", col = "darkgreen", ylim = c(0, max(icc_vh) + 0.05), 
+     main = "ICC in Very High Workload Group", xlab = "", ylab = "ICC", xaxt = "n", lwd = 2)
+
+# Add the labels
+text(1:length(vh_outcomes), icc_vh, labels = round(icc_vh, 2), pos = 3, col = "black")
+
+# Add custom x-axis with just the labels
+axis(1, at = 1:length(vh_outcomes), labels = vh_outcomes, tick = FALSE)
+```
+
+
+
+#################DECEMBER 2012#########################
+
+```{r}
+dat12cM <- dat12c_hd %>% 
+  filter(imonth == 12)
+```
+
+
+#with general health
+
+#FOR LOW WORKLOAD
+```{r}
+dat12c_lowM <- dat12cM %>%
+            filter(wkl=="Low")
+
+```
+
+```{r}
+modgen1LowM <- glmer(genhlth2 ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_lowM)
+
+summary(modgen1LowM)
+#intercept not sig
+```
+
+#icc for Low
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance1 <- VarCorr(modgen1LowM)$intvid[1]
+
+# Calculate ICC
+icc1m <- random_intercept_variance1 / (random_intercept_variance1 + pi^2 / 3)
+icc1m
+#0.06
+```
+
+#FOR MEDIUM WORKLOAD
+```{r}
+dat12c_MedM <- dat12cM %>%
+            filter(wkl=="Medium")
+
+```
+
+```{r}
+modgen1MedM <- glmer(genhlth2 ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_MedM)
+
+summary(modgen1MedM)
+#intercept sig
+```
+
+#icc for MEDIUM
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance2 <- VarCorr(modgen1MedM)$intvid[1]
+
+# Calculate ICC
+icc2m <- random_intercept_variance2 / (random_intercept_variance2 + pi^2 / 3)
+icc2m
+#0.01
+```
+
+#FOR HIGH WORKLOAD
+```{r}
+dat12c_HM <- dat12cM %>%
+            filter(wkl=="High")
+
+```
+
+```{r}
+modgen1HM <- glmer(genhlth2 ~ 1 + (1 | intvid),
+                  weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_HM)
+
+summary(modgen1HM)
+#intercept sig
+```
+
+#icc for HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance3 <- VarCorr(modgen1HM)$intvid[1]
+
+# Calculate ICC
+icc3m <- random_intercept_variance3 / (random_intercept_variance3 + pi^2 / 3)
+icc3m
+#0.03
+```
+
+
+#FOR VERY HIGH WORKLOAD
+```{r}
+dat12c_VHM <- dat12cM %>%
+            filter(wkl=="Very high")
+
+```
+
+```{r}
+modgen1VHM <- glmer(genhlth2 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_VHM)
+
+summary(modgen1VHM)
+#intercept sig
+```
+
+#icc for VERY HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance4 <- VarCorr(modgen1VHM)$intvid[1]
+
+# Calculate ICC
+icc4m <- random_intercept_variance4 / (random_intercept_variance4 + pi^2 / 3)
+icc4m
+#0.02
+```
+
+#Chekcing ICC variation for Dec with Low data for genhealth
+```{r}
+# Load required libraries
+library(dplyr) # for data manipulation
+library(broom) # for tidying model outputs
+
+# Identify unique interviewers
+interviewers1 <- unique_countsLM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_lowM %>% filter(intvid != interviewers1[i])
+  
+  modgen1LowM1 <- glmer(genhlth2 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(modgen1LowM1)$intvid[1]
+
+# Calculate ICC
+icc4m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc4m1
+}
+
+# Print coefficients for each model
+# for (i in 1:length(coefficients_list)) {
+#   cat("Coefficients for model excluding interviewer", interviewers[i], ":\n")
+#   print(coefficients_list[[i]])
+#   cat("\n")
+# }
+mean(coefficients_list)
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for low workload of Self-rated general health")
+```
+mean ICC 0.04541858
+no outlier
+
+new mean ICC 0.04561488
+new plot  ??
+
+#Chekcing ICC variation for Dec with Medium data for genhealth
+```{r}
+# Identify unique interviewers
+interviewers1 <- unique_countsMM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_MedM %>% filter(intvid != interviewers1[i])
+  
+
+  modgen1MedM1 <- glmer(genhlth2 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(modgen1MedM1)$intvid[1]
+
+# Calculate ICC
+icc4m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc4m1
+}
+
+mean(coefficients_list)
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for medium workload of Self-rated general health")
+```
+mean ICC 0.005658712
+one outlier but not significant
+
+new mean ICC 0.005283678
+new plot few outliers
+
+#Chekcing ICC variation for Dec with High data for genhealth
+```{r}
+# Identify unique interviewers
+interviewers1 <- unique_countsHM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_HM %>% filter(intvid != interviewers1[i])
+  
+  modgen1HM1 <- glmer(genhlth2 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(modgen1HM1)$intvid[1]
+
+# Calculate ICC
+icc4m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc4m1
+}
+
+mean(coefficients_list)
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for high workload of Self-rated general health")
+```
+mean ICC 0.02904352
+one outlier
+
+new mean ICC 0.02918918
+new plot very few outlier
+
+
+#Chekcing ICC variation for Dec with VH data for genhealth
+```{r}
+# Identify unique interviewers
+interviewers1 <- unique_countsVHM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_VHM %>% filter(intvid != interviewers1[i])
+  
+  modgen1VHM1 <- glmer(genhlth2 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(modgen1VHM1)$intvid[1]
+
+# Calculate ICC
+icc4m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc4m1
+}
+
+mean(coefficients_list)
+
+genVH <- plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for very high workload of Self-rated general health")
+```
+mean ICC 0.01773435
+couple of outliers
+
+new mean ICC 0.01775556
+new plot very few outliers
+
+#WITH DEPRESSION
+
+#FOR LOW WORKLOAD
+```{r}
+moddep1LowM <- glmer(depr1 ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_lowM)
+
+summary(moddep1LowM)
+#sig
+#
+moddep1LowMN <- glmer(depnew1 ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_lowM)
+
+summary(moddep1LowMN)
+```
+
+#icc for Low
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance1 <- VarCorr(moddep1LowM)$intvid[1]
+
+# Calculate ICC
+icc1m <- random_intercept_variance1 / (random_intercept_variance1 + pi^2 / 3)
+icc1m
+#0
+#
+random_intercept_variance1N <- VarCorr(moddep1LowMN)$intvid[1]
+
+# Calculate ICC
+icc1mN <- random_intercept_variance1N / (random_intercept_variance1N + pi^2 / 3)
+icc1mN
+```
+
+#FOR MEDIUM WORKLOAD
+```{r}
+moddep1MedM <- glmer(depr1 ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_MedM)
+
+summary(moddep1MedM)
+#sig
+#
+moddep1MedMN <- glmer(depnew1 ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_MedM)
+
+summary(moddep1MedMN)
+```
+
+#icc for MEDIUM
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance2 <- VarCorr(moddep1MedM)$intvid[1]
+
+# Calculate ICC
+icc2m <- random_intercept_variance2 / (random_intercept_variance2 + pi^2 / 3)
+icc2m
+#0.00
+#
+random_intercept_variance2N <- VarCorr(moddep1MedMN)$intvid[1]
+
+# Calculate ICC
+icc2mN <- random_intercept_variance2N / (random_intercept_variance2N + pi^2 / 3)
+icc2mN
+```
+
+#FOR HIGH WORKLOAD
+```{r}
+moddep1HM <- glmer(depr1 ~ 1 + (1 | intvid),
+                  weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_HM)
+
+summary(moddep1HM)
+#intercept sig
+#
+moddep1HMN <- glmer(depnew1 ~ 1 + (1 | intvid),
+                  weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_HM)
+
+summary(moddep1HMN)
+```
+
+#icc for HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance3 <- VarCorr(moddep1HM)$intvid[1]
+
+# Calculate ICC
+icc3m <- random_intercept_variance3 / (random_intercept_variance3 + pi^2 / 3)
+icc3m
+#0.0
+#
+random_intercept_variance3N <- VarCorr(moddep1HMN)$intvid[1]
+
+# Calculate ICC
+icc3mN <- random_intercept_variance3N / (random_intercept_variance3N + pi^2 / 3)
+icc3mN
+#5.300357e-05
+```
+
+
+#FOR VERY HIGH WORKLOAD
+```{r}
+moddep1VHM <- glmer(depr1 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_VHM)
+
+summary(moddep1VHM)
+#intercept sig
+#
+moddep1VHMN <- glmer(depnew1 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_VHM)
+
+summary(moddep1VHMN)
+```
+
+#icc for VERY HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance4 <- VarCorr(moddep1VHM)$intvid[1]
+
+# Calculate ICC
+icc4m <- random_intercept_variance4 / (random_intercept_variance4 + pi^2 / 3)
+icc4m
+#0
+#
+random_intercept_variance4N <- VarCorr(moddep1VHMN)$intvid[1]
+
+# Calculate ICC
+icc4mN <- random_intercept_variance4N / (random_intercept_variance4N + pi^2 / 3)
+icc4mN
+#0
+```
+
+#Chekcing ICC variation for Dec with low data for any depression
+```{r}
+# Identify unique interviewers
+interviewers1 <- unique_countsLM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_lowM %>% filter(intvid != interviewers1[i])
+  
+  moddep1LowM1 <- glmer(depnew1 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(moddep1LowM1)$intvid[1]
+
+# Calculate ICC
+icc3m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc3m1
+}
+
+mean(coefficients_list)
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for Low Workload of Any Depression")
+```
+mean ICC 0
+no outlier
+
+new mean ICC 0
+new plot no outlier
+
+4.036721e-18
+
+
+#Chekcing ICC variation for Dec with medium data for any depression
+```{r}
+# Identify unique interviewers
+interviewers1 <- unique_countsMM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_MedM %>% filter(intvid != interviewers1[i])
+  
+  moddep1MedM1 <- glmer(depnew1 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(moddep1MedM1)$intvid[1]
+
+# Calculate ICC
+icc3m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc3m1
+}
+
+mean(coefficients_list)
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for Medium Workload of Any Depression")
+```
+mean ICC 0.001964791
+no outlier
+scattered
+
+new mean ICC 0.002004233
+new plot not significant outlier
+
+0.002004226
+
+#Chekcing ICC variation for Dec with high data for any depression
+```{r}
+# Identify unique interviewers
+interviewers1 <- unique_countsHM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_HM %>% filter(intvid != interviewers1[i])
+  
+  moddep1HM1 <- glmer(depnew1 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(moddep1HM1)$intvid[1]
+
+# Calculate ICC
+icc3m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc3m1
+}
+
+mean(coefficients_list)
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for High Workload of Any Depression")
+```
+mean ICC 0.0006376662
+outlier
+
+new mean ICC 0.000759813
+new plot few outliers
+
+0.000759801
+
+#Chekcing ICC variation for Dec with very high data for any depression
+```{r}
+# Identify unique interviewers
+interviewers1 <- unique_countsVHM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_VHM %>% filter(intvid != interviewers1[i])
+  
+  moddep1VHM1 <- glmer(depnew1 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(moddep1VHM1)$intvid[1]
+
+# Calculate ICC
+icc3m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc3m1
+}
+
+mean(coefficients_list)
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for Very High Workload of Any Depression")
+```
+mean ICC 3.922692e-14
+one outlier
+scattered 
+
+new mean ICC 7.86619e-14
+new plot one outlier
+
+4.291336e-14
+
+
+#WITH EXERCISE
+
+#FOR LOW WORKLOAD
+```{r}
+modex1LowM <- glmer(exernew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_lowM)
+
+summary(modex1LowM)
+#sign
+#
+modex1LowMN <- glmer(exernew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_lowM)
+
+summary(modex1LowMN)
+```
+
+#icc for Low
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance1 <- VarCorr(modex1LowM)$intvid[1]
+
+# Calculate ICC
+icc1m <- random_intercept_variance1 / (random_intercept_variance1 + pi^2 / 3)
+icc1m
+#0.07
+#
+random_intercept_variance1N <- VarCorr(modex1LowMN)$intvid[1]
+
+# Calculate ICC
+icc1mN <- random_intercept_variance1N / (random_intercept_variance1N + pi^2 / 3)
+icc1mN
+```
+
+#FOR MEDIUM WORKLOAD
+```{r}
+modex1MedM <- glmer(exer1 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_MedM)
+
+summary(modex1MedM)
+#sign
+#
+modex1MedMN <- glmer(exernew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_MedM)
+
+summary(modex1MedMN)
+```
+
+#icc for MEDIUM
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance2 <- VarCorr(modex1MedM)$intvid[1]
+
+# Calculate ICC
+icc2m <- random_intercept_variance2 / (random_intercept_variance2 + pi^2 / 3)
+icc2m
+#0
+#
+random_intercept_variance2N <- VarCorr(modex1MedMN)$intvid[1]
+
+# Calculate ICC
+icc2mN <- random_intercept_variance2N / (random_intercept_variance2N + pi^2 / 3)
+icc2mN
+```
+
+#FOR HIGH WORKLOAD
+```{r}
+modex1HM <- glmer(exer1 ~ 1 + (1 | intvid),
+                 weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_HM)
+
+summary(modex1HM)
+#intercept sig
+#
+#
+modex1HMN <- glmer(exernew ~ 1 + (1 | intvid),
+                 weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_HM)
+
+summary(modex1HMN)
+```
+
+#icc for HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance3 <- VarCorr(modex1HM)$intvid[1]
+
+# Calculate ICC
+icc3m <- random_intercept_variance3 / (random_intercept_variance3 + pi^2 / 3)
+icc3m
+#0.07
+#
+random_intercept_variance3N <- VarCorr(modex1HMN)$intvid[1]
+
+# Calculate ICC
+icc3mN <- random_intercept_variance3N / (random_intercept_variance3N + pi^2 / 3)
+icc3mN
+```
+
+
+#FOR VERY HIGH WORKLOAD
+```{r}
+modex1VHM <- glmer(exer1 ~ 1 + (1 | intvid),
+                  weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_VHM)
+
+summary(modex1VHM)
+#intercept sig
+#
+modex1VHMN <- glmer(exernew ~ 1 + (1 | intvid),
+                  weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_VHM)
+
+summary(modex1VHMN)
+```
+
+#icc for VERY HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance4 <- VarCorr(modex1VHM)$intvid[1]
+
+# Calculate ICC
+icc4m <- random_intercept_variance4 / (random_intercept_variance4 + pi^2 / 3)
+icc4m
+#0.04
+#
+random_intercept_variance4N <- VarCorr(modex1VHMN)$intvid[1]
+
+# Calculate ICC
+icc4mN <- random_intercept_variance4N / (random_intercept_variance4N + pi^2 / 3)
+icc4mN
+```
+
+#Chekcing ICC variation for Dec with low data for any exercise
+```{r}
+# Identify unique interviewers
+interviewers1 <- unique_countsLM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_lowM %>% filter(intvid != interviewers1[i])
+  
+  modgen1LowM1 <- glmer(exernew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(modgen1LowM1)$intvid[1]
+
+# Calculate ICC
+icc2m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc2m1
+}
+
+mean(coefficients_list)
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for Low Workload of Any Exercise")
+```
+mean ICC 0.06032196
+no outlier
+
+new mean ICC 0.05830256
+new plot some outliers
+
+0.05830255
+
+#Chekcing ICC variation for Dec with medium data for any exercise
+```{r}
+# Identify unique interviewers
+interviewers1 <- unique_countsMM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_MedM %>% filter(intvid != interviewers1[i])
+  
+  modgen1MedM1 <- glmer(exernew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(modgen1MedM1)$intvid[1]
+
+# Calculate ICC
+icc2m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc2m1
+}
+
+mean(coefficients_list)
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for Medium Workload of Any Exercise")
+```
+mean ICC 0.004362907
+one outlier but not significant
+
+new mean ICC 0.004595576
+new plot few outliers
+
+0.004595571
+
+#Chekcing ICC variation for Dec with high data for any exercise
+```{r}
+# Identify unique interviewers
+interviewers1 <- unique_countsHM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_HM %>% filter(intvid != interviewers1[i])
+  
+  modgen1HM1 <- glmer(exernew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(modgen1HM1)$intvid[1]
+
+# Calculate ICC
+icc2m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc2m1
+}
+
+mean(coefficients_list)
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for High Workload of Any Exercise")
+```
+mean ICC 0.06589049
+couple of outliers 
+
+new mean ICC 0.06598516
+new plot outliers
+
+0.06598515
+
+#Chekcing ICC variation for Dec with very high data for any exercise
+```{r}
+# Identify unique interviewers
+interviewers1 <- unique_countsVHM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_VHM %>% filter(intvid != interviewers1[i])
+  
+  modgen1VHM1 <- glmer(exernew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(modgen1VHM1)$intvid[1]
+
+# Calculate ICC
+icc2m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc2m1
+}
+
+mean(coefficients_list)
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for Very High Workload of Any Exercise")
+```
+mean ICC 0.04245941
+few outliers
+
+new mean ICC 0.04252395
+new plot few outliers
+
+0.04252395
+
+#FOR HEALTH COVERAGE
+
+#FOR LOW WORKLOAD
+```{r}
+modhcovLowM <- glmer(hcov ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_lowM)
+
+summary(modhcovLowM)
+
+
+modhcovLowMN <- glmer(hcovnew ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_lowM)
+
+summary(modhcovLowMN)
+
+```
+
+#icc for Low
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance1 <- VarCorr(modhcovLowM)$intvid[1]
+
+# Calculate ICC
+icc1m <- random_intercept_variance1 / (random_intercept_variance1 + pi^2 / 3)
+icc1m
+#0.0
+#
+#
+random_intercept_variance1N <- VarCorr(modhcovLowMN)$intvid[1]
+
+# Calculate ICC
+icc1mN <- random_intercept_variance1N / (random_intercept_variance1N + pi^2 / 3)
+icc1mN
+#0
+```
+
+#FOR MEDIUM WORKLOAD
+```{r}
+modhcovMedM <- glmer(hlthcov1 ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_MedM)
+
+summary(modhcovMedM)
+
+modhcovMedMN <- glmer(hcovnew ~ 1 + (1 | intvid),
+                    weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_MedM)
+
+summary(modhcovMedMN)
+
+```
+
+#icc for MEDIUM
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance2 <- VarCorr(modhcovMedM)$intvid[1]
+
+# Calculate ICC
+icc2m <- random_intercept_variance2 / (random_intercept_variance2 + pi^2 / 3)
+icc2m
+#0.0
+#
+random_intercept_variance2N <- VarCorr(modhcovMedMN)$intvid[1]
+
+# Calculate ICC
+icc2mN <- random_intercept_variance2N / (random_intercept_variance2N + pi^2 / 3)
+icc2mN
+#0
+```
+
+#FOR HIGH WORKLOAD
+```{r}
+modhcovHM <- glmer(hlthcov1 ~ 1 + (1 | intvid),
+                  weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_HM)
+
+summary(modhcovHM)
+#intercept sig
+#
+#
+modhcovHMN <- glmer(hcovnew ~ 1 + (1 | intvid),
+                  weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_HM)
+
+summary(modhcovHMN)
+```
+
+#icc for HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance3 <- VarCorr(modhcovHM)$intvid[1]
+
+# Calculate ICC
+icc3 <- random_intercept_variance3 / (random_intercept_variance3 + pi^2 / 3)
+icc3
+#0.01
+#
+random_intercept_variance3N <- VarCorr(modhcovHMN)$intvid[1]
+
+# Calculate ICC
+icc3N <- random_intercept_variance3N / (random_intercept_variance3N + pi^2 / 3)
+icc3N
+#0.01
+```
+
+
+#FOR VERY HIGH WORKLOAD
+```{r}
+modhcovVH <- glmer(hlthcov1 ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_VHWL)
+
+summary(modhcovVH)
+#intercept sig
+#
+modhcovVHN <- glmer(hcovnew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = dat12c_VHWL)
+
+summary(modhcovVHN)
+```
+
+#icc for VERY HIGH
+```{r}
+# Extract variance of the random intercept from the model
+random_intercept_variance4 <- VarCorr(modhcovVH)$intvid[1]
+
+# Calculate ICC
+icc4 <- random_intercept_variance4 / (random_intercept_variance4 + pi^2 / 3)
+icc4
+#0.08
+#
+random_intercept_variance4N <- VarCorr(modhcovVHN)$intvid[1]
+
+# Calculate ICC
+icc4N <- random_intercept_variance4N / (random_intercept_variance4N + pi^2 / 3)
+icc4N
+#0.08
+```
+
+
+#Chekcing ICC variation for Dec with low data for any health coverage
+```{r}
+#dat12c_lowM$intvid_state <- paste(dat12c_lowM$intvid, dat12c_lowM$state, sep = "_")
+
+# Identify unique interviewers including state information
+interviewers1 <- unique_countsLM$intvid
+
+# Identify unique interviewers
+#interviewers <- unique(dat12c_lowM$intvid)
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_lowM %>% filter(intvid != interviewers1[i])
+  
+  modhcov1LowM1 <- glmer(hcovnew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(modhcov1LowM1)$intvid[1]
+
+# Calculate ICC
+icc1m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc1m1
+}
+
+mean(coefficients_list)
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for Low Workload of Any Health Coverage")
+```
+mean ICC 0.018995
+one outlier 
+
+new mean icc 0.01582917
+new plot 6 outliers
+
+0.01582917
+
+#Chekcing ICC variation for Dec with medium data for any health coverage
+```{r}
+#dat12c_MedM$intvid_state1 <- paste(dat12c_MedM$intvid, dat12c_MedM$state, sep = "_")
+# Identify unique interviewers
+#interviewers <- unique(dat12c_MedM$intvid)
+#
+# Identify unique interviewers including state information
+interviewers1 <- unique_countsMM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_MedM %>% filter(intvid != interviewers1[i])
+  
+  modhcov1MedM1 <- glmer(hcovnew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(modhcov1MedM1)$intvid[1]
+
+# Calculate ICC
+icc1m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc1m1
+}
+
+mean(coefficients_list)
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for Medium Workload of Any Health Coverage")
+```
+mean ICC 7.746634e-16
+one outlier 
+
+new mean icc 5.620107e-16
+new plot few outliers
+
+8.316439e-16
+
+#Chekcing ICC variation for Dec with high data for any health coverage
+```{r}
+# Identify unique interviewers
+interviewers1 <- unique_countsHM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_HM %>% filter(intvid != interviewers1[i])
+  
+  modhcov1HM1 <- glmer(hcovnew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(modhcov1HM1)$intvid[1]
+
+# Calculate ICC
+icc1m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc1m1
+}
+
+mean(coefficients_list)
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for High Workload of Any Health Coverage")
+```
+mean ICC 0.01417939
+one outlier
+
+new mean icc 0.01427636
+new plot few outliers
+
+0.01427636
+
+#Chekcing ICC variation for Dec with very high data for any health coverage
+```{r}
+# Identify unique interviewers
+interviewers1 <- unique_countsVHM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_VHM %>% filter(intvid != interviewers1[i])
+  
+  modhcov1VHM1 <- glmer(hcovnew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(modhcov1VHM1)$intvid[1]
+
+# Calculate ICC
+icc1m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc1m1
+}
+
+mean(coefficients_list)
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for Very High Workload of Any Health Coverage")
+```
+mean ICC 0.09016529
+few outliers
+
+new mean icc 0.09023645
+new plot some outliers
+
+0.09023649
+
+
+#removing intvids
+```{r}
+# Identify unique interviewers
+interviewers1 <- unique_countsVHM$intvid
+
+# Create an empty list to store coefficients
+coefficients_list <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers1)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_VHM %>% filter(intvid != interviewers1[i])
+  
+  modhcov1VHM1 <- glmer(hcovnew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41 <- VarCorr(modhcov1VHM1)$intvid[1]
+
+# Calculate ICC
+icc1m1 <- random_intercept_variance41 / (random_intercept_variance41 + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list[i] <- icc1m1
+}
+
+mean(coefficients_list)
+
+# Filter coefficients_list to exclude values less than or equal to 0.088
+filtered_coefficients <- coefficients_list[coefficients_list > 0.088]
+
+# Calculate the mean of the filtered coefficients
+mean_filtered <- mean(filtered_coefficients)
+
+# Display the mean of the filtered coefficients
+print(mean_filtered)
+
+plot(filtered_coefficients, ylim=c(0,0.15) ,xlab = "Interviewer ID", ylab = "ICC for Very High Workload of Any Health Coverage filtered")
+```
+0.09037814
+
+
+#trying to remove interviewers
+```{r}
+# Identify unique interviewers
+interviewers2 <- unique_countsVHM$intvid[-c(192, 193, 263, 270, 270, 535, 536, 537, 869, 870, 871, 893, 895, 896, 1028, 1029, 1030, 1190, 1191)]
+
+# Create an empty list to store coefficients
+coefficients_list1 <- c()
+
+# Loop through each interviewer
+for (i in 1:length(interviewers2)) {
+  # Subset data excluding the current interviewer
+  subset_data <- dat12c_VHM %>% filter(intvid != interviewers2[i])
+  
+  modhcov1VHM1 <- glmer(hcovnew ~ 1 + (1 | intvid),
+                   weights = wt3>0,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa"),
+  nAGQ = 1,
+  data = subset_data)
+
+# Extract variance of the random intercept from the model
+random_intercept_variance41a <- VarCorr(modhcov1VHM1)$intvid[1]
+
+# Calculate ICC
+icc1m1a <- random_intercept_variance41a / (random_intercept_variance41a + pi^2 / 3)
+
+  
+  # Store coefficients in the list
+  coefficients_list1[i] <- icc1m1a
+}
+
+mean(coefficients_list1)
+
+plot(coefficients_list1, xlab = "Interviewer ID", ylim=c(0,0.1), ylab = "ICC for Very High Workload of Any Health Coverage after removing ints")
+
+#number of ints of the outliers
+outlierints <- which(coefficients_list1<=0.086)
+
+#icc for <0.086
+coefficients_list[which(coefficients_list<=0.086)]
+
+# Filter coefficients_list to exclude values less than or equal to 0.088
+filtered_coefficients <- coefficients_list[coefficients_list > 0.088]
+
+plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for Very High Workload of Any Health Coverage")
+```
+
+0.09031028
+
+
+```{r}
+unique_countsLM <- dat12c_lowM %>% 
+  group_by(intvid, state) %>% 
+  summarise(count = n())
+
+# Count the number of unique interviewers
+num_unique_interviewersLM <- nrow(unique_countsLM)
+num_unique_interviewersLM
+```
+36
+
+```{r}
+unique_countsMM <- dat12c_MedM %>% 
+  group_by(intvid, state) %>% 
+  summarise(count = n())
+
+# Count the number of unique interviewers
+num_unique_interviewersMM <- nrow(unique_countsMM)
+num_unique_interviewersMM
+```
+153
+
+```{r}
+unique_countsHM <- dat12c_HM %>% 
+  group_by(intvid, state) %>% 
+  summarise(count = n())
+
+# Count the number of unique interviewers
+num_unique_interviewersHM <- nrow(unique_countsHM)
+num_unique_interviewersHM
+```
+504
+
+```{r}
+unique_countsVHM <- dat12c_VHM %>% 
+  group_by(intvid, state) %>% 
+  summarise(count = n())
+
+# Count the number of unique interviewers
+num_unique_interviewersVHM <- nrow(unique_countsVHM)
+num_unique_interviewersVHM
+```
+1726
+
+```{r}
+unique_countsM <- dat12cM %>% 
+  group_by(intvid, state) %>% 
+  summarise(count = n())
+
+# Count the number of unique interviewers
+num_unique_interviewersM <- nrow(unique_countsM)
+num_unique_interviewersM
+```
+2419
+
+```{r}
+# par(mfrow=c(1,3))
+# genVH
+# plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for Very High Workload of Any Health Coverage")
+# plot(coefficients_list, xlab = "Interviewer ID", ylab = "ICC for Very High Workload of Any Health Coverage")
+```
+
+```{r}
+dat12c_hd$depnew <- as.numeric(dat12c_hd$depr1)
+table(dat12c_hd$depnew)
+```
+
